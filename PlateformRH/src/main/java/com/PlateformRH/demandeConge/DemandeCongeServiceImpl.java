@@ -1,0 +1,162 @@
+package com.PlateformRH.demandeConge;
+
+import com.PlateformRH.Employe.EmployeRepository;
+import com.PlateformRH.Employe.employe;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class DemandeCongeServiceImpl implements DemandeCongeService {
+
+    private final DemandeCongeRepository demandeCongeRepository;
+
+    private final EmployeRepository employeRepository;
+    @Override
+    public void DemandeConge(DemandeConge demandeConge, Long employeId) {
+
+        //  Vérifier employé
+        employe emp = employeRepository.findById(employeId)
+                .orElseThrow(() -> new RuntimeException("Employé non trouvé"));
+
+        //  Calculer nombre de jours demandés
+        long nbJours = ChronoUnit.DAYS.between(
+                demandeConge.getDateDebut(),
+                demandeConge.getDateFin()
+        ) + 1;
+
+        // Vérifier solde
+        if (nbJours > emp.getSoldeConge()) {
+            throw new RuntimeException("Solde de congé insuffisant !");
+        }
+
+        // ⃣ Initialiser statut
+        demandeConge.setStatut(StatutDemande.EN_ATTENTE);
+
+        //  Lier employé
+        demandeConge.setEmploye(emp);
+
+        //  Sauvegarder
+        demandeCongeRepository.save(demandeConge);
+    }
+    @Override
+    public List<DemandeCongeDTO> getAllDemandes() {
+        List<DemandeConge> demandes = demandeCongeRepository.findAll();
+
+        return demandes.stream().map(this::mapToDto).toList();
+    }
+
+    // Mapper DemandeConge vers DemandeCongeDTO
+    private DemandeCongeDTO mapToDto(DemandeConge demande) {
+        DemandeCongeDTO dto = new DemandeCongeDTO();
+        dto.setId(demande.getId());
+        dto.setDebut(demande.getDateDebut());
+        dto.setFin(demande.getDateFin());
+        if (demande.getType() != null) {
+            dto.setTypeConge(demande.getType().name());
+        }
+        if (demande.getStatut() != null) {
+            dto.setStatutDemande(demande.getStatut().name());
+        }
+        if (demande.getEmploye() != null) {
+            dto.setMatriculeEmploye(demande.getEmploye().getMatricule());
+            dto.setNomEmploye(demande.getEmploye().getNom());
+            dto.setPrenomEmploye(demande.getEmploye().getPrenom());
+        }
+        return dto;
+    }
+    @Override
+    public DemandeCongeDTO getDemandeById(Long id) {
+        DemandeConge demande = demandeCongeRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Demande de congé non trouvée"));
+        return mapToDto(demande);
+    }
+    @Override
+    public void deleteDemande(Long id) {
+        if (!demandeCongeRepository.existsById(id)) {
+            throw new RuntimeException("Demande de congé non trouvée");
+        }
+        demandeCongeRepository.deleteById(id);
+    }
+    @Override
+    public DemandeCongeDTO updateDemande(Long id, DemandeCongeDTO dto) {
+        DemandeConge demande = demandeCongeRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Demande de congé non trouvée"));
+
+        // Mise à jour des champs
+        demande.setDateDebut(dto.getDebut());
+        demande.setDateFin(dto.getFin());
+        if (dto.getTypeConge() != null) {
+            demande.setType(TypeConge.valueOf(dto.getTypeConge()));
+        }
+        if (dto.getStatutDemande() != null) {
+            demande.setStatut(StatutDemande.valueOf(dto.getStatutDemande()));
+        }
+
+        // Sauvegarder les modifications
+        DemandeConge updated = demandeCongeRepository.save(demande);
+        return mapToDto(updated);
+    }
+
+
+    @Override
+    public List<DemandeCongeDTO> getDemandesByType(String type) {
+
+        // convertir String → Enum
+        TypeConge typeConge = TypeConge.valueOf(type);
+
+        List<DemandeConge> demandes = demandeCongeRepository.findByType(typeConge);
+
+        return demandes.stream()
+                .map(this::mapToDto)
+                .toList();
+    }
+    public List<DemandeCongeDTO> getDemandesByStatut(String statut) {
+
+        try {
+            // convertir String → Enum
+            StatutDemande statutDemande = StatutDemande.valueOf(statut.toUpperCase());
+
+            List<DemandeConge> demandes = demandeCongeRepository.findByStatut(statutDemande);
+
+            return demandes.stream()
+                    .map(this::mapToDto)
+                    .toList();
+
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Statut invalide");
+        }
+    }
+    @Override
+    public DemandeCongeDTO changeStatut(Long id, String statut) {
+
+        // récupérer la demande
+        DemandeConge demande = demandeCongeRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Demande non trouvée"));
+
+        // convertir String → Enum (sans try/catch)
+        StatutDemande newStatut = StatutDemande.valueOf(statut.toUpperCase());
+
+        // changer le statut
+        demande.setStatut(newStatut);
+
+        // sauvegarder
+        return mapToDto(demandeCongeRepository.save(demande));
+    }
+
+    @Override
+    public List<DemandeCongeDTO> getDemandesByEmployeeId(Long employeId){
+        List<DemandeConge> demandes =
+                demandeCongeRepository.findByEmployeId(employeId);
+        return demandes.stream()
+                .map(this::mapToDto)
+                .toList();
+
+    }
+}
+
+
+

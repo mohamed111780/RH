@@ -1,0 +1,720 @@
+<!-- ============================================================
+     ESPACE RH — Angular Component Template
+     Thème : Emerald Dark (teal / pink / amber)
+     ============================================================ -->
+
+<!-- ════════════════════ SIDEBAR ════════════════════ -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon"><i class="fas fa-people-roof"></i></div>
+    <div class="logo-text">Nex<span>RH</span></div>
+  </div>
+
+  <div class="sidebar-section">Principal</div>
+
+  <div class="nav-item" [class.active]="activePage==='dashboard'" (click)="showPage('dashboard')">
+    <i class="fas fa-th-large"></i> Vue d'ensemble
+  </div>
+  <div class="nav-item" [class.active]="activePage==='employes'" (click)="showPage('employes')">
+    <i class="fas fa-users"></i> Employés
+    <span class="nav-badge teal">{{ employees.length }}</span>
+  </div>
+  <div class="nav-item" [class.active]="activePage==='conges'" (click)="showPage('conges')">
+    <i class="fas fa-umbrella-beach"></i> Congés & Absences
+    <span class="nav-badge amber" *ngIf="pendingLeaves > 0">{{ pendingLeaves }}</span>
+  </div>
+  <div class="nav-item" [class.active]="activePage==='formations'" (click)="showPage('formations')">
+    <i class="fas fa-graduation-cap"></i> Formations
+  </div>
+
+  <div class="sidebar-section">Recrutement IA</div>
+
+  <div class="nav-item" [class.active]="activePage==='offres'" (click)="showPage('offres')">
+    <i class="fas fa-briefcase"></i> Offres d'emploi
+    <span class="nav-badge">{{ currentOffres.length }}</span>
+  </div>
+  <div class="nav-item" (click)="showPage('offres'); kanbanView=true; kanbanOffre=currentOffres[0]">
+    <i class="fas fa-layer-group"></i> Kanban candidatures
+  </div>
+  <div class="nav-item" [class.active]="activePage==='analytics'" (click)="showPage('analytics')">
+    <i class="fas fa-robot"></i> Analytique IA
+  </div>
+
+  <div class="sidebar-bottom">
+    <div class="user-card">
+      <div class="user-avatar">RH</div>
+      <div class="user-info">
+        <p>Responsable RH</p>
+        <span>Accès Complet</span>
+      </div>
+      <i class="fas fa-ellipsis-v" style="color:var(--text3); font-size:12px; margin-left:auto;"></i>
+    </div>
+  </div>
+</aside>
+
+<!-- ════════════════════ MAIN ════════════════════ -->
+<main class="main">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar-title">{{ pageTitle }}</div>
+    <div class="topbar-search">
+      <i class="fas fa-search"></i>
+      <input type="text" placeholder="Rechercher employé, offre...">
+    </div>
+    <div class="topbar-actions">
+      <div class="btn-icon"><i class="fas fa-moon"></i></div>
+      <div class="btn-icon" (click)="showToast('3 nouvelles candidatures reçues')">
+        <i class="fas fa-bell"></i>
+        <div class="notif-dot"></div>
+      </div>
+      <div class="btn-icon"><i class="fas fa-cog"></i></div>
+    </div>
+  </header>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- ═══════════════════ DASHBOARD ═══════════════════ -->
+    <div class="page" [class.active]="activePage==='dashboard'">
+
+      <div class="welcome-banner">
+        <div>
+          <div class="rh-badge"><i class="fas fa-shield-halved"></i> Espace RH</div>
+          <h1>Bonjour, Responsable RH 👋</h1>
+          <p>{{ pendingLeaves }} demandes de congé en attente · 3 candidatures à score IA ≥ 85%</p>
+        </div>
+        <div class="banner-date">
+          <strong>23</strong>
+          Mai 2025
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-card teal" (click)="showPage('employes')">
+          <div class="stat-top">
+            <div class="stat-icon teal"><i class="fas fa-users"></i></div>
+            <span class="stat-trend up">↑ +4%</span>
+          </div>
+          <div class="stat-value">{{ employees.length }}</div>
+          <div class="stat-label">Employés actifs</div>
+        </div>
+        <div class="stat-card amber" (click)="showPage('conges')">
+          <div class="stat-top">
+            <div class="stat-icon amber"><i class="fas fa-calendar-check"></i></div>
+            <span class="stat-trend up">↑ +2</span>
+          </div>
+          <div class="stat-value">{{ pendingLeaves }}</div>
+          <div class="stat-label">Congés en attente</div>
+        </div>
+        <div class="stat-card purple" (click)="showPage('offres')">
+          <div class="stat-top">
+            <div class="stat-icon purple"><i class="fas fa-file-alt"></i></div>
+            <span class="stat-trend up">↑ +8</span>
+          </div>
+          <div class="stat-value">{{ totalCandidatures }}</div>
+          <div class="stat-label">Candidatures totales</div>
+        </div>
+        <div class="stat-card pink" (click)="showPage('employes')">
+          <div class="stat-top">
+            <div class="stat-icon pink"><i class="fas fa-user-slash"></i></div>
+            <span class="stat-trend down">↑ 3.1%</span>
+          </div>
+          <div class="stat-value">{{ absentEmployees }}</div>
+          <div class="stat-label">Absences aujourd'hui</div>
+        </div>
+      </div>
+
+      <div class="grid-3-1">
+        <!-- Activité recrutement -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><i class="fas fa-chart-line"></i> Activité recrutement — 7 derniers jours</div>
+          </div>
+          <div class="mini-chart">
+            <div class="mini-bar" *ngFor="let h of recrutWeek; trackBy: trackByIndex"
+                 [style.height.%]="h"
+                 [style.background]="'rgba(20,184,166,' + (0.2 + h/200) + ')'"
+                 [title]="h"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--text3); margin-top:6px;">
+            <span *ngFor="let d of recrutDays">{{ d }}</span>
+          </div>
+          <div style="margin-top:14px; display:flex; gap:18px;">
+            <div>
+              <div style="font-size:11px; color:var(--text3);">Total semaine</div>
+              <div style="font-size:19px; font-weight:700; font-family:var(--font-disp);">44</div>
+            </div>
+            <div>
+              <div style="font-size:11px; color:var(--text3);">Score moyen IA</div>
+              <div style="font-size:19px; font-weight:700; font-family:var(--font-disp); color:var(--teal);">73%</div>
+            </div>
+            <div>
+              <div style="font-size:11px; color:var(--text3);">Entretiens planifiés</div>
+              <div style="font-size:19px; font-weight:700; font-family:var(--font-disp); color:var(--amber);">9</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Départements -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><i class="fas fa-building"></i> Départements</div>
+          </div>
+          <div class="analytics-bar-item" *ngFor="let d of deptDistrib">
+            <div class="analytics-label">{{ d.name }}</div>
+            <div class="analytics-track">
+              <div class="analytics-fill" [style.width.%]="d.pct" [style.background]="d.color"></div>
+            </div>
+            <div class="analytics-val" [style.color]="d.color">{{ d.pct }}%</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <!-- Nouveaux employés -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><i class="fas fa-user-plus"></i> Nouveaux employés</div>
+            <div class="card-action" (click)="showPage('employes')">Voir tous</div>
+          </div>
+          <div class="emp-item" *ngFor="let e of employees.slice(0,4)">
+            <div class="emp-avatar" [style.background]="e.color" [style.color]="e.textColor">{{ e.initials }}</div>
+            <div class="emp-info">
+              <strong>{{ e.name }}</strong>
+              <span>{{ e.role }} · {{ e.dept }}</span>
+            </div>
+            <span class="status-pill" [ngClass]="getStatusPill(e.status).cls">{{ getStatusPill(e.status).label }}</span>
+          </div>
+        </div>
+
+        <!-- Activité récente -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><i class="fas fa-bell"></i> Activité récente</div>
+          </div>
+          <div class="activity-item" *ngFor="let a of activityFeed">
+            <div class="activity-dot" [style.background]="a.color"></div>
+            <div>
+              <p [innerHTML]="a.message"></p>
+              <span>{{ a.time }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════ EMPLOYÉS ═══════════════════ -->
+    <div class="page" [class.active]="activePage==='employes'">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:22px;">
+        <div class="section-title" style="margin-bottom:0;">
+          <i class="fas fa-users" style="color:var(--teal2);"></i> Gestion des Employés
+        </div>
+        <button class="btn-primary" (click)="openModalEmp()"><i class="fas fa-plus"></i> Ajouter employé</button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card teal">
+          <div class="stat-top"><div class="stat-icon teal"><i class="fas fa-users"></i></div></div>
+          <div class="stat-value">{{ employees.length }}</div>
+          <div class="stat-label">Total employés</div>
+        </div>
+        <div class="stat-card purple">
+          <div class="stat-top"><div class="stat-icon purple"><i class="fas fa-check-circle"></i></div></div>
+          <div class="stat-value">{{ activeEmployees }}</div>
+          <div class="stat-label">Actifs</div>
+        </div>
+        <div class="stat-card amber">
+          <div class="stat-top"><div class="stat-icon amber"><i class="fas fa-umbrella-beach"></i></div></div>
+          <div class="stat-value">{{ onLeaveEmployees }}</div>
+          <div class="stat-label">En congé</div>
+        </div>
+        <div class="stat-card sky">
+          <div class="stat-top"><div class="stat-icon sky"><i class="fas fa-laptop-house"></i></div></div>
+          <div class="stat-value">{{ remoteEmployees }}</div>
+          <div class="stat-label">Remote</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-list"></i> Liste des employés</div>
+          <select class="filter-select" [(ngModel)]="filterDept">
+            <option *ngFor="let d of deptOptions">{{ d }}</option>
+          </select>
+        </div>
+
+        <div class="emp-full-item" *ngFor="let e of filteredEmployees">
+          <div class="emp-avatar"
+               [style.background]="e.color" [style.color]="e.textColor"
+               style="width:40px; height:40px; font-size:12px;">{{ e.initials }}</div>
+          <div class="emp-full-info">
+            <strong>{{ e.name }}</strong>
+            <span>{{ e.role }}</span>
+          </div>
+          <span class="emp-dept-badge"
+                [style.background]="getDeptStyle(e.dept).bg"
+                [style.color]="getDeptStyle(e.dept).color">{{ e.dept }}</span>
+          <span class="status-pill" [ngClass]="getStatusPill(e.status).cls">{{ getStatusPill(e.status).label }}</span>
+          <span class="absence-badge"
+                [ngClass]="e.absences === 0 ? 'low' : e.absences <= 3 ? 'mid' : 'high'">
+            {{ e.absences }} abs.
+          </span>
+          <div class="emp-actions">
+            <div class="action-btn" title="Voir profil" (click)="showToast('Profil de ' + e.name + ' ouvert')"><i class="fas fa-eye"></i></div>
+            <div class="action-btn" title="Modifier"   (click)="showToast('Modification de ' + e.name)"><i class="fas fa-edit"></i></div>
+            <div class="action-btn" title="Message"    (click)="showToast('Message envoyé à ' + e.name)"><i class="fas fa-envelope"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════ CONGÉS ═══════════════════ -->
+    <div class="page" [class.active]="activePage==='conges'">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:22px;">
+        <div class="section-title" style="margin-bottom:0;">
+          <i class="fas fa-umbrella-beach" style="color:var(--amber);"></i> Congés & Absences
+        </div>
+        <button class="btn-primary" (click)="showToast('Formulaire nouvelle demande ouvert')">
+          <i class="fas fa-plus"></i> Nouvelle demande
+        </button>
+      </div>
+
+      <div class="grid-2">
+        <!-- Calendrier -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><i class="fas fa-calendar"></i> Mai 2025</div>
+          </div>
+          <div class="leave-calendar">
+            <div class="cal-header" *ngFor="let d of ['L','M','M','J','V','S','D']">{{ d }}</div>
+            <div *ngFor="let cell of calendarDays" [ngClass]="cell.cls">
+              <span *ngIf="cell.day">{{ cell.day }}</span>
+            </div>
+          </div>
+          <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:5px; font-size:10.5px; color:var(--text3);">
+              <div style="width:10px;height:10px;border-radius:3px;background:var(--teal);"></div> Aujourd'hui
+            </div>
+            <div style="display:flex; align-items:center; gap:5px; font-size:10.5px; color:var(--text3);">
+              <div style="width:10px;height:10px;border-radius:3px;background:rgba(245,158,11,0.3);"></div> Approuvé
+            </div>
+            <div style="display:flex; align-items:center; gap:5px; font-size:10.5px; color:var(--text3);">
+              <div style="width:10px;height:10px;border-radius:3px;background:rgba(244,63,94,0.2);"></div> En attente
+            </div>
+          </div>
+        </div>
+
+        <!-- Demandes -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><i class="fas fa-clock"></i> Demandes en attente</div>
+            <span class="nav-badge amber">{{ pendingLeaves }}</span>
+          </div>
+
+          <div *ngFor="let r of leaveRequests" class="emp-item">
+            <div class="emp-avatar" [style.background]="'rgba(255,255,255,0.07)'" [style.color]="r.color"
+                 style="width:36px;height:36px;font-size:12px;">{{ r.initials }}</div>
+            <div class="emp-info">
+              <strong>{{ r.name }}</strong>
+              <span>{{ r.dates }} · {{ r.type }} · {{ r.days }}j</span>
+            </div>
+
+            <ng-container [ngSwitch]="getLeaveStatus(r)">
+              <ng-container *ngSwitchCase="'pending'">
+                <div class="action-btn" style="color:var(--green);"  (click)="approveLeave(r)"><i class="fas fa-check"></i></div>
+                <div class="action-btn" style="color:var(--red);"    (click)="rejectLeave(r)"><i class="fas fa-times"></i></div>
+              </ng-container>
+              <ng-container *ngSwitchCase="'approved'">
+                <span class="status-pill active">Approuvé</span>
+              </ng-container>
+              <ng-container *ngSwitchCase="'rejected'">
+                <span class="status-pill absent">Refusé</span>
+              </ng-container>
+            </ng-container>
+          </div>
+        </div>
+      </div>
+
+      <!-- Solde par équipe -->
+      <div class="card" style="margin-top:18px;">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-chart-bar"></i> Solde congés par équipe</div>
+        </div>
+        <div class="grid-3" style="margin-bottom:0;">
+          <div>
+            <div style="font-size:12px; color:var(--text2); margin-bottom:5px;">Ingénierie — 62 employés</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:75%; background:var(--teal);"></div></div>
+            <div style="font-size:10.5px; color:var(--text3); margin-top:4px;">75% solde utilisé</div>
+          </div>
+          <div>
+            <div style="font-size:12px; color:var(--text2); margin-bottom:5px;">Design — 25 employés</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:48%; background:var(--purple);"></div></div>
+            <div style="font-size:10.5px; color:var(--text3); margin-top:4px;">48% solde utilisé</div>
+          </div>
+          <div>
+            <div style="font-size:12px; color:var(--text2); margin-bottom:5px;">Marketing — 17 employés</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:90%; background:var(--pink);"></div></div>
+            <div style="font-size:10.5px; color:var(--text3); margin-top:4px;">90% solde utilisé</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════ FORMATIONS ═══════════════════ -->
+    <div class="page" [class.active]="activePage==='formations'">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:22px;">
+        <div class="section-title" style="margin-bottom:0;">
+          <i class="fas fa-graduation-cap" style="color:var(--teal2);"></i> Formations & Compétences
+        </div>
+        <button class="btn-primary" (click)="showToast('Nouvelle formation créée')">
+          <i class="fas fa-plus"></i> Créer formation
+        </button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card teal">
+          <div class="stat-top"><div class="stat-icon teal"><i class="fas fa-play-circle"></i></div></div>
+          <div class="stat-value">{{ formations.length }}</div><div class="stat-label">En cours</div>
+        </div>
+        <div class="stat-card purple">
+          <div class="stat-top"><div class="stat-icon purple"><i class="fas fa-check-double"></i></div></div>
+          <div class="stat-value">124</div><div class="stat-label">Complétées</div>
+        </div>
+        <div class="stat-card amber">
+          <div class="stat-top"><div class="stat-icon amber"><i class="fas fa-users"></i></div></div>
+          <div class="stat-value">89</div><div class="stat-label">Employés inscrits</div>
+        </div>
+        <div class="stat-card pink">
+          <div class="stat-top"><div class="stat-icon pink"><i class="fas fa-star"></i></div></div>
+          <div class="stat-value">4.7</div><div class="stat-label">Note moyenne</div>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <div class="tab" *ngFor="let t of ['Toutes','Tech','Soft Skills','Leadership']"
+             [class.active]="formationTab===t" (click)="formationTab=t">{{ t }}</div>
+      </div>
+
+      <div class="formations-grid">
+        <div class="formation-card" *ngFor="let f of filteredFormations"
+             (click)="showToast('Formation : ' + f.title)">
+          <span class="formation-tag" [ngClass]="f.tag">{{ f.tagLabel }}</span>
+          <h4>{{ f.title }}</h4>
+          <p>{{ f.desc }}</p>
+          <div style="margin-bottom:10px;">
+            <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--text3); margin-bottom:4px;">
+              <span>Progression moyenne</span><span>{{ f.progress }}%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" [style.width.%]="f.progress"
+                   [style.background]="f.tag==='tech' ? 'var(--teal)' : f.tag==='soft' ? 'var(--accent)' : 'var(--amber)'"></div>
+            </div>
+          </div>
+          <div class="formation-meta">
+            <span><i class="fas fa-clock"></i>{{ f.duration }}</span>
+            <span><i class="fas fa-users"></i>{{ f.enrolled }} inscrits</span>
+            <span><i class="fas fa-star" style="color:var(--amber);"></i>{{ f.rating }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════ OFFRES & KANBAN ═══════════════════ -->
+    <div class="page" [class.active]="activePage==='offres'">
+
+      <!-- LISTE OFFRES -->
+      <div class="offre-view" [class.active]="!kanbanView">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:22px;">
+          <div class="section-title" style="margin-bottom:0;">
+            <i class="fas fa-briefcase" style="color:var(--teal2);"></i> Offres d'emploi
+          </div>
+          <button class="btn-primary" (click)="openModalOffre()"><i class="fas fa-plus"></i> Nouvelle offre</button>
+        </div>
+
+        <div class="offres-grid">
+          <div class="offre-card" [ngClass]="o.type" *ngFor="let o of currentOffres"
+               (click)="showKanban(o)">
+            <div style="display:flex; align-items:start; justify-content:space-between; margin-bottom:8px;">
+              <span class="offre-niveau" [ngClass]="o.niveau">{{ o.niveauLabel }}</span>
+              <span style="font-size:10px; color:var(--text3);">Il y a {{ o.date }}</span>
+            </div>
+            <h4>{{ o.title }}</h4>
+            <div class="offre-dept"><i class="fas fa-building" style="margin-right:4px;"></i>{{ o.dept }}</div>
+            <div class="offre-tags">
+              <span class="offre-tag" *ngFor="let t of o.tags">{{ t }}</span>
+            </div>
+            <div class="offre-footer">
+              <span><i class="fas fa-file-alt" style="margin-right:4px;"></i>Voir candidatures</span>
+              <span class="candidatures-count">{{ o.candidatures }} candidatures</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KANBAN VIEW -->
+      <div class="offre-view" [class.active]="kanbanView" *ngIf="kanbanOffre">
+        <div class="back-btn" (click)="backToOffres()">
+          <i class="fas fa-arrow-left"></i> Retour aux offres
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+          <div>
+            <div class="section-title" style="margin-bottom:4px;">
+              <i class="fas fa-layer-group" style="color:var(--teal2);"></i>
+              {{ kanbanOffre.title }}
+            </div>
+            <div style="font-size:12px; color:var(--text3);">
+              {{ kanbanOffre.dept }} · {{ kanbanOffre.niveauLabel }} · Publié il y a {{ kanbanOffre.date }}
+            </div>
+          </div>
+          <div class="ai-badge"><i class="fas fa-robot"></i> IA Matching activé</div>
+        </div>
+
+        <div class="kanban-board" *ngIf="currentKanbanData">
+          <div class="kanban-col" *ngFor="let col of kanbanCols">
+            <div class="kanban-col-header">
+              <div class="kanban-col-title">
+                <div class="col-dot" [ngClass]="col.dotClass"></div>
+                <i class="fas" [ngClass]="col.icon" style="font-size:11px; color:var(--text3);"></i>
+                {{ col.label }}
+              </div>
+              <span class="col-count" [ngClass]="col.countClass">{{ getKanbanCol(col.key).length }}</span>
+            </div>
+
+            <div class="candidature-card" *ngFor="let c of getKanbanCol(col.key)">
+              <div class="cand-header">
+                <div class="cand-avatar" [style.background]="c.color" [style.color]="c.tc">{{ c.initials }}</div>
+                <div class="cand-info">
+                  <strong>{{ c.name }}</strong>
+                  <span>{{ c.role }}</span>
+                </div>
+              </div>
+              <div class="ai-score-container">
+                <div class="ai-score-header">
+                  <div class="ai-score-label"><i class="fas fa-robot"></i> Score IA matching</div>
+                  <div class="ai-score-value" [style.color]="scoreColor(c.score)">{{ c.score }}%</div>
+                </div>
+                <div class="score-bar">
+                  <div class="score-fill" [ngClass]="scoreClass(c.score)" [style.width.%]="c.score"></div>
+                </div>
+              </div>
+              <div class="cand-tags">
+                <span class="cand-tag" *ngFor="let t of c.tags"
+                      [ngClass]="tagMatchClass(t, currentKanbanData!.offreTags)">{{ t }}</span>
+              </div>
+              <div style="display:flex; gap:5px; margin-top:9px;" *ngIf="col.key !== 'rejetee'">
+                <button class="action-btn" *ngIf="col.key==='trier'"
+                        style="flex:1; width:auto; padding:5px; font-size:10.5px; color:var(--teal2);"
+                        (click)="showToast('Entretien planifié pour ' + c.name)">
+                  <i class="fas fa-calendar-plus" style="margin-right:3px;"></i> Entretien
+                </button>
+                <button class="action-btn" *ngIf="col.key==='trier'"
+                        style="color:var(--red); padding:5px 10px; width:auto;"
+                        (click)="showToast(c.name + ' rejeté')">
+                  <i class="fas fa-times"></i>
+                </button>
+                <button class="action-btn" *ngIf="col.key==='entretien'"
+                        style="flex:1; width:auto; padding:5px; font-size:10.5px; color:var(--green);"
+                        (click)="showToast('Offre envoyée à ' + c.name + ' 🎉')">
+                  <i class="fas fa-paper-plane" style="margin-right:3px;"></i> Envoyer offre
+                </button>
+              </div>
+              <div class="cand-date"><i class="fas fa-clock" style="margin-right:3px;"></i>Reçue il y a {{ (c.score % 5) + 1 }}j</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════ ANALYTICS IA ═══════════════════ -->
+    <div class="page" [class.active]="activePage==='analytics'">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:22px;">
+        <div class="section-title" style="margin-bottom:0;">
+          <i class="fas fa-robot" style="color:var(--teal2);"></i> Analytique IA
+        </div>
+        <div class="ai-badge"><i class="fas fa-robot"></i> IA Active</div>
+      </div>
+
+      <!-- KPI Insights -->
+      <div class="ai-insights-grid">
+        <div class="insight-card" *ngFor="let ins of aiInsights">
+          <div class="insight-icon" [style.background]="ins.bg" [style.color]="ins.color">
+            <i class="fas" [ngClass]="ins.icon"></i>
+          </div>
+          <div class="insight-label">{{ ins.label }}</div>
+          <div class="insight-value" [style.color]="ins.color">{{ ins.value }}</div>
+          <div class="insight-sub" [style.color]="ins.color" style="opacity:0.7; font-size:10.5px;">{{ ins.sub }}</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <!-- Top compétences -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><i class="fas fa-star"></i> Top compétences recherchées</div>
+          </div>
+          <div class="analytics-bar-item" *ngFor="let s of topSkills">
+            <div class="analytics-label">{{ s.name }}</div>
+            <div class="analytics-track">
+              <div class="analytics-fill"
+                   [style.width.%]="(s.count / topSkills[0].count) * 100"
+                   [style.background]="s.color"></div>
+            </div>
+            <div class="analytics-val" [style.color]="s.color">{{ s.count }}</div>
+          </div>
+        </div>
+
+        <!-- Funnel recrutement -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><i class="fas fa-filter"></i> Funnel de recrutement</div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <div *ngFor="let step of [
+              {label:'Candidatures reçues', val:53, color:'var(--teal)', pct:100},
+              {label:'Pré-sélection IA', val:31, color:'var(--accent)', pct:58},
+              {label:'Entretiens planifiés', val:14, color:'var(--purple)', pct:26},
+              {label:'Offres envoyées', val:6, color:'var(--amber)', pct:11},
+              {label:'Recrutements finalisés', val:3, color:'var(--green)', pct:6}
+            ]">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <span style="font-size:12px; color:var(--text2);">{{ step.label }}</span>
+                <span style="font-size:12px; font-weight:600;" [style.color]="step.color">{{ step.val }}</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" [style.width.%]="step.pct" [style.background]="step.color"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tendances absences -->
+      <div class="card" style="margin-top:0;">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-calendar-minus"></i> Tendances absences — 6 derniers mois</div>
+        </div>
+        <div class="mini-chart" style="height:80px;">
+          <div class="mini-bar" *ngFor="let v of [45, 60, 38, 72, 55, 31]"
+               [style.height.%]="v"
+               [style.background]="v > 65 ? 'rgba(236,72,153,0.5)' : 'rgba(20,184,166,0.35)'"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--text3); margin-top:5px;">
+          <span *ngFor="let m of ['Déc','Jan','Fév','Mar','Avr','Mai']">{{ m }}</span>
+        </div>
+        <div style="margin-top:12px; display:flex; gap:20px;">
+          <div>
+            <div style="font-size:10.5px; color:var(--text3);">Taux moyen</div>
+            <div style="font-size:18px; font-weight:700; font-family:var(--font-disp); color:var(--teal);">3.1%</div>
+          </div>
+          <div>
+            <div style="font-size:10.5px; color:var(--text3);">Pic (Mars)</div>
+            <div style="font-size:18px; font-weight:700; font-family:var(--font-disp); color:var(--pink);">5.4%</div>
+          </div>
+          <div>
+            <div style="font-size:10.5px; color:var(--text3);">Prédiction IA (Juin)</div>
+            <div style="font-size:18px; font-weight:700; font-family:var(--font-disp); color:var(--amber);">2.8%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</main>
+
+<!-- ════════════════════ MODAL : OFFRE ════════════════════ -->
+<div class="modal-overlay" [class.open]="modalOffreOpen" (click)="$event.target === $event.currentTarget && closeModalOffre()">
+  <div class="modal">
+    <h2>📋 Publier une offre d'emploi</h2>
+    <p>Créez et publiez une nouvelle offre. L'IA analysera automatiquement les candidatures.</p>
+
+    <div class="form-group">
+      <label>Titre du poste *</label>
+      <input type="text" [(ngModel)]="newOffreTitre" placeholder="ex: Lead Developer React.js">
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+      <div class="form-group">
+        <label>Département</label>
+        <select [(ngModel)]="newOffreDept">
+          <option>Ingénierie</option><option>Design</option>
+          <option>Data & IA</option><option>Marketing</option>
+          <option>Finance</option><option>RH</option><option>Produit</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Niveau</label>
+        <select [(ngModel)]="newOffreNiveau">
+          <option>Junior</option><option>Mid-level</option>
+          <option>Senior</option><option>Lead</option><option>Manager</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <textarea [(ngModel)]="newOffreDesc" placeholder="Décrivez le rôle, les responsabilités..."></textarea>
+    </div>
+    <div class="form-group">
+      <label>Compétences requises (Entrée ou virgule)</label>
+      <div class="tags-input-container" (click)="$any($event.currentTarget).querySelector('input').focus()">
+        <div class="tag-pill" *ngFor="let tag of newOffreTags">
+          {{ tag }} <span class="remove-tag" (click)="removeTag(tag)">×</span>
+        </div>
+        <input class="tags-input" [(ngModel)]="tagInputValue" (keydown)="addTag($event)"
+               placeholder="React, Python, Docker...">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" (click)="createOffre()"><i class="fas fa-paper-plane"></i> Publier l'offre</button>
+      <button class="btn-secondary" (click)="closeModalOffre()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ MODAL : EMPLOYÉ ════════════════════ -->
+<div class="modal-overlay" [class.open]="modalEmpOpen" (click)="$event.target === $event.currentTarget && closeModalEmp()">
+  <div class="modal">
+    <h2>👤 Ajouter un employé</h2>
+    <p>Renseignez les informations du nouvel employé pour l'intégrer dans le système.</p>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+      <div class="form-group">
+        <label>Prénom *</label>
+        <input type="text" [(ngModel)]="newEmpPrenom" placeholder="ex: Sara">
+      </div>
+      <div class="form-group">
+        <label>Nom *</label>
+        <input type="text" [(ngModel)]="newEmpNom" placeholder="ex: Amrani">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Poste / Rôle</label>
+      <input type="text" [(ngModel)]="newEmpRole" placeholder="ex: Développeur Full Stack">
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+      <div class="form-group">
+        <label>Département</label>
+        <select [(ngModel)]="newEmpDept">
+          <option>Ingénierie</option><option>Design</option>
+          <option>IA</option><option>Marketing</option>
+          <option>Finance</option><option>RH</option><option>Produit</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Email professionnel</label>
+        <input type="email" [(ngModel)]="newEmpEmail" placeholder="prenom.nom@corp.tn">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" (click)="createEmployee()"><i class="fas fa-user-plus"></i> Ajouter l'employé</button>
+      <button class="btn-secondary" (click)="closeModalEmp()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ TOAST ════════════════════ -->
+<div class="toast" [class.show]="toastVisible">
+  <i class="fas fa-check-circle"></i>
+  <span>{{ toastMessage }}</span>
+</div>

@@ -1,0 +1,700 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<!-- ══════════════════ SIDEBAR ══════════════════ -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon"><i class="fas fa-brain"></i></div>
+    <div class="logo-text">Nex<span>HR</span></div>
+  </div>
+
+  <!-- Profile mini card -->
+  <div class="sidebar-profile">
+    <div class="profile-avatar" [style.background]="employe.avatarColor" [style.color]="employe.avatarText">
+      {{ employe.avatar }}
+    </div>
+    <div class="profile-name">{{ employe.prenom }} {{ employe.nom }}</div>
+    <div class="profile-role">{{ employe.poste }}</div>
+    <span class="profile-badge"><i class="fas fa-id-badge"></i>{{ employe.matricule }}</span>
+  </div>
+
+  <!-- Solde congés widget -->
+  <div class="sidebar-solde">
+    <div class="solde-title"><i class="fas fa-umbrella-beach" style="margin-right:5px;color:var(--accent4);"></i>Solde congés</div>
+    <div class="solde-row">
+      <span class="solde-label">Restant</span>
+      <span class="solde-val" style="color:var(--accent3);">{{ soldeRestant }}j</span>
+    </div>
+    <div class="solde-row">
+      <span class="solde-label">Utilisé</span>
+      <span class="solde-val" style="color:var(--accent4);">{{ employe.congesUtilises }}j</span>
+    </div>
+    <div class="solde-bar">
+      <div class="solde-fill" [style.width]="(employe.congesUtilises / employe.soldeConges * 100) + '%'"></div>
+    </div>
+  </div>
+
+  <div class="sidebar-section">Mon Espace</div>
+  <div class="nav-item" [class.active]="currentPage === 'dashboard'" (click)="showPage('dashboard')">
+    <i class="fas fa-home"></i> Tableau de bord
+  </div>
+
+  <div class="sidebar-section">RH</div>
+  <div class="nav-item" [class.active]="currentPage === 'conges'" (click)="showPage('conges')">
+    <i class="fas fa-umbrella-beach"></i> Mes Congés
+    <span class="nav-badge amber" *ngIf="pendingConges > 0">{{ pendingConges }}</span>
+  </div>
+  <div class="nav-item" [class.active]="currentPage === 'offres'" (click)="showPage('offres')">
+    <i class="fas fa-briefcase"></i> Offres Internes
+    <span class="nav-badge accent">{{ offresInternes.length }}</span>
+  </div>
+  <div class="nav-item" [class.active]="currentPage === 'formations'" (click)="showPage('formations')">
+    <i class="fas fa-graduation-cap"></i> Formations
+  </div>
+
+  <div class="sidebar-section">Compte</div>
+  <div class="nav-item" [class.active]="currentPage === 'parametres'" (click)="showPage('parametres')">
+    <i class="fas fa-cog"></i> Paramètres
+  </div>
+  <button type="button" class="nav-item logout-item" (click)="logoutEmploye()">
+    <i class="fas fa-sign-out-alt"></i> Deconnexion
+  </button>
+</aside>
+
+<!-- ══════════════════ MAIN ══════════════════ -->
+<main class="main">
+  <header class="topbar">
+    <div class="topbar-title">{{ pageTitle }}</div>
+    <div class="topbar-actions">
+      <div class="btn-icon" (click)="showToast('Aucune nouvelle notification')">
+        <i class="fas fa-bell"></i>
+        <div class="notif-dot" *ngIf="pendingConges > 0"></div>
+      </div>
+      <div class="btn-icon" (click)="showPage('parametres')"><i class="fas fa-user-circle"></i></div>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- ══════════ DASHBOARD ══════════ -->
+    <div class="page" *ngIf="currentPage === 'dashboard'">
+
+      <!-- Welcome Banner -->
+      <div class="welcome-banner">
+        <div>
+          <h1>Bonjour, {{ employe.prenom }} 👋</h1>
+          <p>Bienvenue dans votre espace personnel NexHR. Consultez vos informations RH.</p>
+          <div class="banner-meta">
+            <div class="meta-chip"><i class="fas fa-building"></i><span>Dept : <strong>{{ employe.dept }}</strong></span></div>
+            <div class="meta-chip"><i class="fas fa-calendar-alt"></i><span>Embauche : <strong>{{ formatDate(employe.dateEmbauche) }}</strong></span></div>
+            <div class="meta-chip"><i class="fas fa-clock"></i><span>Ancienneté : <strong>{{ anciennete }}</strong></span></div>
+          </div>
+        </div>
+        <div class="banner-right">
+          <div class="solde-big">{{ soldeRestant }}</div>
+          <div class="solde-sub">jours de congés</div>
+          <div class="solde-used">{{ employe.congesUtilises }} utilisés / {{ employe.soldeConges }} total</div>
+        </div>
+      </div>
+
+      <!-- Stats row -->
+      <div class="grid-4">
+        <div class="stat-card purple">
+          <div class="stat-top"><div class="stat-icon purple"><i class="fas fa-umbrella-beach"></i></div></div>
+          <div class="stat-value">{{ soldeRestant }}</div>
+          <div class="stat-label">Congés restants</div>
+        </div>
+        <div class="stat-card amber">
+          <div class="stat-top"><div class="stat-icon amber"><i class="fas fa-hourglass-half"></i></div></div>
+          <div class="stat-value">{{ pendingConges }}</div>
+          <div class="stat-label">Demandes en cours</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-top"><div class="stat-icon green"><i class="fas fa-graduation-cap"></i></div></div>
+          <div class="stat-value">{{ mesFormationsActives.length }}</div>
+          <div class="stat-label">Mes formations</div>
+        </div>
+        <div class="stat-card cyan">
+          <div class="stat-top"><div class="stat-icon cyan"><i class="fas fa-briefcase"></i></div></div>
+          <div class="stat-value">{{ offresInternes.length }}</div>
+          <div class="stat-label">Offres disponibles</div>
+        </div>
+      </div>
+
+      <!-- Lower row -->
+      <div class="grid-2">
+
+        <!-- Dernières demandes congé -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><i class="fas fa-calendar-check"></i> Mes dernières demandes</div>
+            <div class="card-action" (click)="showPage('conges')">Voir toutes</div>
+          </div>
+          <div class="conge-row" *ngFor="let c of demandesConge.slice(0,4)">
+            <div class="conge-icon" [class]="c.status">
+              <i class="fas" [class.fa-check]="c.status === 'approved'" [class.fa-clock]="c.status === 'pending'" [class.fa-times]="c.status === 'rejected'"></i>
+            </div>
+            <div class="conge-info">
+              <span class="conge-type">{{ c.type }}</span>
+              <span class="conge-dates">{{ formatDate(c.dateDebut) }} → {{ formatDate(c.dateFin) }}</span>
+            </div>
+            <div class="conge-days" [class]="c.status">{{ c.nbJours }}j</div>
+            <span class="status-pill" [class]="c.status">{{ statusLabel(c.status) }}</span>
+          </div>
+        </div>
+
+        <!-- Activité & Infos -->
+        <div class="card">
+          <div class="card-header"><div class="card-title"><i class="fas fa-bell"></i> Activité récente</div></div>
+          <div class="activity-item">
+            <div class="activity-dot" style="background:var(--accent3);"></div>
+            <div><p>✅ Votre congé du <strong>2–6 Juin</strong> a été approuvé</p><span>Il y a 2j</span></div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot" style="background:var(--accent4);"></div>
+            <div><p>📋 Nouvelle offre interne : <strong>Lead Developer React.js</strong></p><span>Il y a 3j</span></div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot" style="background:var(--accent);"></div>
+            <div><p>📚 Inscription confirmée : <strong>React.js Avancé & TypeScript</strong></p><span>Il y a 1 semaine</span></div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot" style="background:var(--accent6);"></div>
+            <div><p>🏆 Formation <strong>Communication & Leadership</strong> complétée !</p><span>Il y a 3 mois</span></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Formations en cours -->
+      <div class="card" *ngIf="mesFormationsActives.length">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-play-circle"></i> Mes formations en cours</div>
+          <div class="card-action" (click)="showPage('formations')">Voir toutes</div>
+        </div>
+        <div class="grid-3" style="margin-bottom:0;">
+          <div *ngFor="let f of mesFormationsActives" style="padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">
+              <span class="formation-tag" [class]="f.tag">{{ f.tagLabel }}</span>
+              <span class="status-pill" [class]="f.status">{{ f.status === 'enrolled' ? 'En cours' : f.status === 'completed' ? 'Terminée' : 'En attente' }}</span>
+            </div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:4px;">{{ f.title }}</div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:10px;"><i class="fas fa-clock" style="margin-right:4px;"></i>{{ f.duration }}</div>
+            <div *ngIf="f.progress !== undefined">
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px;">
+                <span>Progression</span><span>{{ f.progress }}%</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" [style.width]="f.progress + '%'"
+                  [style.background]="f.tag === 'tech' ? 'var(--accent)' : f.tag === 'soft' ? 'var(--accent6)' : 'var(--accent4)'">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ══════════ CONGÉS PAGE ══════════ -->
+    <div class="page" *ngIf="currentPage === 'conges'">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+        <div class="section-title" style="margin-bottom:0;"><i class="fas fa-umbrella-beach" style="color:var(--accent4);"></i> Mes Congés</div>
+        <button class="btn-primary" (click)="openCongeModal()"><i class="fas fa-plus"></i> Nouvelle demande</button>
+      </div>
+
+      <!-- Solde grid -->
+      <div class="grid-4" style="margin-bottom:24px;">
+        <div class="stat-card green">
+          <div class="stat-top"><div class="stat-icon green"><i class="fas fa-sun"></i></div></div>
+          <div class="stat-value">{{ employe.soldeConges }}</div>
+          <div class="stat-label">Solde total</div>
+        </div>
+        <div class="stat-card cyan">
+          <div class="stat-top"><div class="stat-icon cyan"><i class="fas fa-check-circle"></i></div></div>
+          <div class="stat-value">{{ soldeRestant }}</div>
+          <div class="stat-label">Jours restants</div>
+        </div>
+        <div class="stat-card amber">
+          <div class="stat-top"><div class="stat-icon amber"><i class="fas fa-calendar-times"></i></div></div>
+          <div class="stat-value">{{ employe.congesUtilises }}</div>
+          <div class="stat-label">Jours utilisés</div>
+        </div>
+        <div class="stat-card purple">
+          <div class="stat-top"><div class="stat-icon purple"><i class="fas fa-hourglass-half"></i></div></div>
+          <div class="stat-value">{{ pendingConges }}</div>
+          <div class="stat-label">En attente</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-list-alt"></i> Historique des demandes</div>
+        </div>
+
+        <!-- Empty state -->
+        <div class="empty-state" *ngIf="demandesConge.length === 0">
+          <i class="fas fa-inbox"></i>
+          <p>Aucune demande de congé pour le moment</p>
+        </div>
+
+        <div class="conge-row" *ngFor="let c of demandesConge">
+          <div class="conge-icon" [class]="c.status">
+            <i class="fas" [class.fa-check]="c.status === 'approved'" [class.fa-clock]="c.status === 'pending'" [class.fa-times]="c.status === 'rejected'"></i>
+          </div>
+          <div class="conge-info">
+            <span class="conge-type">{{ c.type }}</span>
+            <span class="conge-dates">{{ formatDate(c.dateDebut) }} → {{ formatDate(c.dateFin) }}
+              <span *ngIf="c.commentaire" style="margin-left:8px;color:var(--text3);">· {{ c.commentaire }}</span>
+            </span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="conge-days" [class]="c.status">{{ c.nbJours }}j</div>
+            <span class="status-pill" [class]="c.status">{{ statusLabel(c.status) }}</span>
+            <button class="btn-sm danger" *ngIf="c.status === 'pending'" (click)="cancelDemande(c.id)">
+              <i class="fas fa-times"></i> Annuler
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ OFFRES INTERNES PAGE ══════════ -->
+    <div class="page" *ngIf="currentPage === 'offres'">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+        <div class="section-title" style="margin-bottom:0;"><i class="fas fa-briefcase" style="color:var(--accent6);"></i> Offres Internes</div>
+        <div style="font-size:13px;color:var(--text3);">
+          <i class="fas fa-info-circle" style="margin-right:5px;color:var(--accent2);"></i>
+          Mobilité interne — Candidatures prioritaires
+        </div>
+      </div>
+
+      <div class="offres-grid">
+        <div class="offre-card" [class]="o.type"
+          *ngFor="let o of offresInternes"
+          [style.--bar-bg]="offreTypeColor(o.type)"
+          (click)="showOffreModal = o">
+          <div style="position:absolute;top:0;left:0;right:0;height:2px;" [style.background]="offreTypeColor(o.type)"></div>
+          <div style="display:flex;align-items:start;justify-content:space-between;margin-bottom:8px;">
+            <span class="offre-niveau" [class]="o.niveau">{{ o.niveauLabel }}</span>
+            <span style="font-size:10px;color:var(--text3);">{{ o.datePub }}</span>
+          </div>
+          <h4>{{ o.title }}</h4>
+          <div class="offre-dept"><i class="fas fa-building" style="margin-right:5px;"></i>{{ o.dept }}</div>
+          <div class="offre-tags">
+            <span class="offre-tag" *ngFor="let t of o.tags">{{ t }}</span>
+          </div>
+          <div class="offre-footer">
+            <span *ngIf="!o.postule"><i class="fas fa-arrow-right" style="margin-right:4px;"></i>Voir & postuler</span>
+            <span class="postule-badge" *ngIf="o.postule"><i class="fas fa-check"></i> Candidature envoyée</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ FORMATIONS PAGE ══════════ -->
+    <div class="page" *ngIf="currentPage === 'formations'">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+        <div class="section-title" style="margin-bottom:0;"><i class="fas fa-graduation-cap" style="color:var(--accent3);"></i> Formations</div>
+      </div>
+
+      <div class="tabs">
+        <div class="tab" [class.active]="activeFormationTab === 'catalogue'" (click)="activeFormationTab = 'catalogue'">
+          <i class="fas fa-book-open" style="margin-right:6px;"></i>Catalogue
+        </div>
+        <div class="tab" [class.active]="activeFormationTab === 'mes'" (click)="activeFormationTab = 'mes'">
+          <i class="fas fa-user-graduate" style="margin-right:6px;"></i>Mes formations
+          <span style="margin-left:6px;background:rgba(108,99,255,0.2);color:var(--accent2);font-size:10px;padding:1px 6px;border-radius:10px;">{{ mesFormationsActives.length }}</span>
+        </div>
+      </div>
+
+      <!-- Catalogue -->
+      <div *ngIf="activeFormationTab === 'catalogue'">
+        <div class="formations-grid">
+          <div class="formation-card" *ngFor="let f of formationsCatalogue">
+            <span class="formation-tag" [class]="f.tag">{{ f.tagLabel }}</span>
+            <h4>{{ f.title }}</h4>
+            <p>{{ f.desc }}</p>
+            <div class="formation-meta" style="margin-bottom:14px;">
+              <span><i class="fas fa-clock"></i>{{ f.duration }}</span>
+              <span><i class="fas fa-users"></i>{{ f.enrolled }} inscrits</span>
+              <span><i class="fas fa-star" style="color:var(--accent4);"></i>{{ f.rating }}</span>
+            </div>
+            <button type="button"
+                    class="btn-sm primary"
+                    style="width:100%;justify-content:center;"
+                    (click)="openDemandeFormationModal(f)">
+              <i class="fas fa-paper-plane"></i> Demander inscription
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mes formations -->
+      <div *ngIf="activeFormationTab === 'mes'">
+        <div class="empty-state" *ngIf="mesFormationsActives.length === 0">
+          <i class="fas fa-graduation-cap"></i>
+          <p>Vous n'êtes inscrit à aucune formation pour le moment.<br>Explorez le catalogue pour en demander une.</p>
+        </div>
+        <div class="formations-grid">
+          <div class="formation-card" *ngFor="let f of mesFormationsActives" (click)="showFormationModal = f">
+            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">
+              <span class="formation-tag" [class]="f.tag">{{ f.tagLabel }}</span>
+              <span class="status-pill" [class]="f.status">{{ f.status === 'enrolled' ? 'En cours' : f.status === 'completed' ? 'Terminée' : 'En attente' }}</span>
+            </div>
+            <h4>{{ f.title }}</h4>
+            <p>{{ f.desc }}</p>
+            <div class="formation-justification" *ngIf="f.justification">
+              <span>Justification</span>
+              <p>{{ f.justification }}</p>
+            </div>
+            <div *ngIf="f.progress !== undefined" style="margin-bottom:12px;">
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:5px;">
+                <span>Progression</span><span>{{ f.progress }}%</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" [style.width]="f.progress + '%'"
+                  [style.background]="f.tag === 'tech' ? 'var(--accent)' : f.tag === 'soft' ? 'var(--accent6)' : 'var(--accent4)'">
+                </div>
+              </div>
+            </div>
+            <div class="formation-meta">
+              <span><i class="fas fa-clock"></i>{{ f.duration }}</span>
+              <span *ngIf="f.dateInscription"><i class="fas fa-calendar-plus"></i>{{ formatDate(f.dateInscription!) }}</span>
+              <span *ngIf="f.dateCompletion" style="color:var(--accent3);"><i class="fas fa-check-circle"></i>{{ formatDate(f.dateCompletion!) }}</span>
+            </div>
+            <div class="formation-request-actions" *ngIf="f.status === 'pending'">
+              <button type="button" class="btn-sm outline" (click)="openEditDemandeFormationModal($event, f)">
+                <i class="fas fa-pen"></i> Modifier justification
+              </button>
+              <button type="button" class="btn-sm danger" (click)="openCancelDemandeFormationModal($event, f)">
+                <i class="fas fa-times"></i> Annuler demande
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ PARAMÈTRES PAGE ══════════ -->
+    <div class="page" *ngIf="currentPage === 'parametres'">
+      <div class="section-title"><i class="fas fa-cog" style="color:var(--accent2);"></i> Paramètres</div>
+
+      <!-- Matricule readonly -->
+      <div class="matricule-card">
+        <i class="fas fa-id-badge"></i>
+        Matricule : {{ employe.matricule }}
+      </div>
+
+      <div class="grid-2">
+
+        <!-- Informations personnelles -->
+        <div class="card">
+          <div class="param-section" style="margin-bottom:0;">
+            <h3><i class="fas fa-user"></i> Mes coordonnées</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Prénom</label>
+                <input type="text" [(ngModel)]="paramForm.prenom">
+              </div>
+              <div class="form-group">
+                <label>Nom</label>
+                <input type="text" [(ngModel)]="paramForm.nom">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Adresse email</label>
+              <input type="email" [(ngModel)]="paramForm.email">
+            </div>
+            <div class="form-group">
+              <label>Téléphone</label>
+              <input type="tel" [(ngModel)]="paramForm.telephone">
+            </div>
+            <button class="btn-primary" style="margin-top:4px;" (click)="saveParams()" [disabled]="savingProfile || loadingProfile">
+              <i class="fas fa-save"></i> {{ savingProfile ? 'Enregistrement...' : 'Enregistrer' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Informations RH readonly -->
+        <div class="card">
+          <div class="param-section" style="margin-bottom:0;">
+            <h3><i class="fas fa-briefcase"></i> Informations RH</h3>
+            <div class="info-readonly">
+              <div class="info-row">
+                <span class="info-label"><i class="fas fa-id-card" style="margin-right:6px;color:var(--accent2);"></i>Matricule</span>
+                <span class="info-val">{{ employe.matricule }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label"><i class="fas fa-building" style="margin-right:6px;color:var(--accent2);"></i>Département</span>
+                <span class="info-val">{{ employe.dept }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label"><i class="fas fa-briefcase" style="margin-right:6px;color:var(--accent2);"></i>Poste</span>
+                <span class="info-val">{{ employe.poste }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label"><i class="fas fa-calendar-alt" style="margin-right:6px;color:var(--accent2);"></i>Date d'embauche</span>
+                <span class="info-val">{{ formatDate(employe.dateEmbauche) }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label"><i class="fas fa-clock" style="margin-right:6px;color:var(--accent2);"></i>Ancienneté</span>
+                <span class="info-val" style="color:var(--accent3);">{{ anciennete }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label"><i class="fas fa-umbrella-beach" style="margin-right:6px;color:var(--accent4);"></i>Solde congés</span>
+                <span class="info-val" style="color:var(--accent3);">{{ soldeRestant }}j restants</span>
+              </div>
+            </div>
+            <p style="font-size:11px;color:var(--text3);margin-top:10px;">
+              <i class="fas fa-lock" style="margin-right:5px;"></i>
+              Ces informations sont gérées par le service RH. Contactez-les pour toute modification.
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Mot de passe -->
+      <div class="card">
+        <div class="param-section" style="margin-bottom:0;">
+          <h3><i class="fas fa-lock"></i> Changer le mot de passe</h3>
+          <div class="grid-3" style="margin-bottom:0;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label>Mot de passe actuel</label>
+              <input type="password" [(ngModel)]="paramForm.oldPwd" placeholder="••••••••">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label>Nouveau mot de passe</label>
+              <input type="password" [(ngModel)]="paramForm.newPwd" placeholder="••••••••">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label>Confirmer</label>
+              <input type="password" [(ngModel)]="paramForm.confirmPwd" placeholder="••••••••">
+            </div>
+          </div>
+          <button class="btn-primary" style="margin-top:16px;" (click)="savePassword()" [disabled]="savingPassword">
+            <i class="fas fa-key"></i> {{ savingPassword ? 'Mise a jour...' : 'Mettre a jour le mot de passe' }}
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+  </div><!-- /content -->
+</main>
+
+<!-- ══════════ MODAL DEMANDE CONGÉ ══════════ -->
+<div class="modal-overlay" *ngIf="showCongeModal" (click)="showCongeModal = false">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <h2>🌴 Nouvelle demande de congé</h2>
+    <p>Complétez le formulaire ci-dessous. Votre responsable sera notifié automatiquement.</p>
+
+    <div class="form-group">
+      <label>Type de congé</label>
+      <select [(ngModel)]="congeForm.type">
+        <option>Congé annuel</option>
+        <option>Congé maternité / paternité</option>
+        <option>Congé sans solde</option>
+        <option>Congé exceptionnel</option>
+        <option>Absence médicale</option>
+        <option>Récupération</option>
+      </select>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="form-group">
+        <label>Date de début</label>
+        <input type="date" [(ngModel)]="congeForm.dateDebut">
+      </div>
+      <div class="form-group">
+        <label>Date de fin</label>
+        <input type="date" [(ngModel)]="congeForm.dateFin">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Commentaire (optionnel)</label>
+      <textarea [(ngModel)]="congeForm.commentaire" placeholder="Motif, précisions..."></textarea>
+    </div>
+
+    <div style="background:rgba(108,99,255,0.08);border:1px solid rgba(108,99,255,0.15);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--text2);margin-bottom:4px;">
+      <i class="fas fa-info-circle" style="color:var(--accent2);margin-right:6px;"></i>
+      Solde disponible : <strong style="color:var(--accent3);">{{ soldeRestant }} jours</strong>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-primary" (click)="submitConge()"><i class="fas fa-paper-plane"></i> Soumettre</button>
+      <button class="btn-secondary" (click)="showCongeModal = false">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL OFFRE DETAIL ══════════ -->
+<div class="modal-overlay" *ngIf="showOffreModal" (click)="showOffreModal = null">
+  <div class="modal wide" (click)="$event.stopPropagation()">
+    <div class="offre-modal-header">
+      <div class="offre-modal-icon"
+        [style.background]="'rgba(108,99,255,0.15)'"
+        style="color:var(--accent2);">
+        <i class="fas fa-briefcase"></i>
+      </div>
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span class="offre-niveau" [class]="showOffreModal!.niveau">{{ showOffreModal!.niveauLabel }}</span>
+          <span style="font-size:11px;color:var(--text3);">{{ showOffreModal!.datePub }}</span>
+        </div>
+        <h2 style="font-size:20px;margin-bottom:2px;">{{ showOffreModal!.title }}</h2>
+        <p style="font-size:13px;color:var(--text3);">
+          <i class="fas fa-building" style="margin-right:5px;"></i>{{ showOffreModal!.dept }}
+        </p>
+      </div>
+    </div>
+
+    <div class="offre-modal-tags">
+      <span class="offre-modal-tag" *ngFor="let t of showOffreModal!.tags">{{ t }}</span>
+    </div>
+
+    <div class="offre-modal-desc">{{ showOffreModal!.description }}</div>
+
+    <div class="modal-actions">
+      <ng-container *ngIf="!showOffreModal!.postule">
+        <button class="btn-primary" (click)="postuler(showOffreModal!)">
+          <i class="fas fa-rocket"></i> Postuler à cette offre
+        </button>
+      </ng-container>
+      <ng-container *ngIf="showOffreModal!.postule">
+        <div style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);border-radius:10px;font-size:13px;color:var(--accent3);">
+          <i class="fas fa-check-circle"></i> Candidature déjà envoyée
+        </div>
+      </ng-container>
+      <button class="btn-secondary" (click)="showOffreModal = null">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Demande inscription formation -->
+<div class="demande-formation-overlay" *ngIf="showDemandeFormationModal" (click)="closeDemandeFormationModal()">
+  <div class="modal demande-formation-modal" (click)="$event.stopPropagation()">
+    <h2>Demander inscription</h2>
+
+    <div *ngIf="formationRequestError" class="alert-error">
+      {{ formationRequestError }}
+    </div>
+
+    <div class="form-group">
+      <label>Justification</label>
+      <textarea
+        [(ngModel)]="demandeFormationForm.justification"
+        name="justificationFormation"
+        placeholder="Saisir la justification de votre demande"
+        rows="5"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button"
+              class="btn-primary"
+              (click)="submitDemandeFormation()"
+              [disabled]="submittingFormationRequest || !demandeFormationForm.justification.trim()">
+        <i class="fas fa-paper-plane"></i>
+        {{ submittingFormationRequest ? 'Envoi...' : 'Envoyer la demande' }}
+      </button>
+      <button type="button" class="btn-secondary" (click)="closeDemandeFormationModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modifier justification demande formation -->
+<div class="demande-formation-overlay" *ngIf="showEditDemandeFormationModal" (click)="closeEditDemandeFormationModal()">
+  <div class="modal demande-formation-modal" (click)="$event.stopPropagation()">
+    <h2>Modifier justification</h2>
+
+    <div *ngIf="editFormationRequestError" class="alert-error">
+      {{ editFormationRequestError }}
+    </div>
+
+    <div class="form-group">
+      <label>Justification</label>
+      <textarea
+        [(ngModel)]="editDemandeFormationForm.justification"
+        name="editJustificationFormation"
+        placeholder="Modifier la justification de votre demande"
+        rows="5"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button"
+              class="btn-primary"
+              (click)="updateDemandeFormation()"
+              [disabled]="updatingFormationRequest || !editDemandeFormationForm.justification.trim()">
+        <i class="fas fa-save"></i>
+        {{ updatingFormationRequest ? 'Enregistrement...' : 'Enregistrer' }}
+      </button>
+      <button type="button" class="btn-secondary" (click)="closeEditDemandeFormationModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- Annuler demande formation -->
+<div class="demande-formation-overlay" *ngIf="showCancelDemandeFormationModal" (click)="closeCancelDemandeFormationModal()">
+  <div class="modal demande-formation-modal" (click)="$event.stopPropagation()">
+    <h2>Annuler la demande</h2>
+    <p>Confirmer l'annulation de votre demande de formation.</p>
+
+    <div class="modal-actions">
+      <button type="button"
+              class="btn-sm danger"
+              (click)="cancelDemandeFormation()"
+              [disabled]="cancelingFormationRequest">
+        <i class="fas fa-times"></i>
+        {{ cancelingFormationRequest ? 'Annulation...' : 'Confirmer annulation' }}
+      </button>
+      <button type="button" class="btn-secondary" (click)="closeCancelDemandeFormationModal()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL FORMATION DETAIL ══════════ -->
+<div class="modal-overlay" *ngIf="showFormationModal" (click)="showFormationModal = null">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <span class="formation-tag" [class]="showFormationModal!.tag">{{ showFormationModal!.tagLabel }}</span>
+    <h2 style="margin-top:8px;">{{ showFormationModal!.title }}</h2>
+    <p>{{ showFormationModal!.desc }}</p>
+
+    <div style="display:flex;gap:16px;margin-bottom:20px;padding:14px;background:var(--card);border-radius:10px;">
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:20px;font-weight:700;font-family:var(--font-display);">{{ showFormationModal!.duration }}</div>
+        <div style="font-size:11px;color:var(--text3);">Durée</div>
+      </div>
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:20px;font-weight:700;font-family:var(--font-display);color:var(--accent4);">{{ showFormationModal!.rating }}</div>
+        <div style="font-size:11px;color:var(--text3);">Note</div>
+      </div>
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:20px;font-weight:700;font-family:var(--font-display);color:var(--accent2);">{{ showFormationModal!.enrolled }}</div>
+        <div style="font-size:11px;color:var(--text3);">Inscrits</div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <ng-container *ngIf="showFormationModal!.status === 'available'">
+        <button type="button" class="btn-primary" (click)="onDemandeFormationClick($event, showFormationModal!)">
+          <i class="fas fa-paper-plane"></i> Demander l'inscription
+        </button>
+      </ng-container>
+      <ng-container *ngIf="showFormationModal!.status !== 'available'">
+        <span class="status-pill" [class]="showFormationModal!.status" style="padding:8px 16px;font-size:12px;">
+          {{ showFormationModal!.status === 'enrolled' ? '✅ Inscrit — En cours' : showFormationModal!.status === 'completed' ? '🏆 Terminée' : '⏳ Demande en attente' }}
+        </span>
+      </ng-container>
+      <button class="btn-secondary" (click)="showFormationModal = null">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ TOAST ══════════ -->
+<div class="toast" *ngIf="toastVisible">
+  <i class="fas fa-check-circle"></i>
+  <span>{{ toastMessage }}</span>
+</div>

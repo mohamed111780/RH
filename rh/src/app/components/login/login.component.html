@@ -1,0 +1,106 @@
+<div class="login-wrapper">
+
+  <!-- LEFT -->
+  <div class="left-panel">
+    <div class="left-content">
+
+      <div class="brand">
+        <span class="brand-name">Plateforme RH</span>
+      </div>
+
+      <div class="left-text">
+        <h2>Gestion RH Moderne</h2>
+        <p>Accédez à votre espace sécurisé</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right-panel">
+    <div class="form-container">
+
+      <h1>Connexion</h1>
+
+      <!-- ERROR -->
+      <div class="alert alert-error" *ngIf="errorMessage">
+        {{ errorMessage }}
+      </div>
+
+      <!-- SUCCESS -->
+      <div class="alert alert-success" *ngIf="successMessage">
+        {{ successMessage }}
+      </div>
+
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+
+        <!-- EMAIL -->
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <div class="input-wrap">
+            <input type="email" formControlName="email" placeholder="email@example.com" />
+            <span class="input-icon">✉</span>
+          </div>
+
+          <small class="error-msg" *ngIf="isInvalid('email') && getError('email','required')">
+            Email requis
+          </small>
+
+          <small class="error-msg" *ngIf="isInvalid('email') && getError('email','email')">
+            Email invalide
+          </small>
+        </div>
+
+        <!-- PASSWORD -->
+        <div class="form-group">
+          <label class="form-label">Mot de passe</label>
+
+          <div class="input-wrap password-wrap">
+            <input
+              [type]="showPassword ? 'text' : 'password'"
+              formControlName="password"
+              placeholder="••••••••"
+            />
+            <span class="input-icon">🔒</span>
+            <button type="button" class="toggle-pass" (click)="togglePassword()">
+              {{ showPassword ? '👁' : '👁‍🗨' }}
+            </button>
+          </div>
+
+          <small class="error-msg" *ngIf="isInvalid('password') && getError('password','required')">
+            Mot de passe requis
+          </small>
+
+          <small class="error-msg" *ngIf="isInvalid('password') && getError('password','minlength')">
+            Min 6 caractères
+          </small>
+        </div>
+
+        <!-- REMEMBER -->
+        <div class="form-options">
+          <label>
+            <input type="checkbox" formControlName="rememberMe" />
+            Remember me
+          </label>
+
+          <a href="#" (click)="onForgotPassword($event)">Mot de passe oublié ?</a>
+        </div>
+
+        <!-- BUTTON -->
+        <button type="submit" [disabled]="isLoading">
+          <span *ngIf="!isLoading">Se connecter</span>
+          <span *ngIf="isLoading">Connexion...</span>
+        </button>
+
+      </form>
+
+      <!-- REGISTER -->
+      <p>
+        Pas de compte ?
+        <a href="#" (click)="goToRegister($event)">Créer un compte</a>
+      </p>
+
+    </div>
+  </div>
+
+</div>

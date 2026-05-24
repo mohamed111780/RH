@@ -1,0 +1,418 @@
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="tb-left">
+    <span class="tb-item">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.01 1.18 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z"/></svg>
+      (+216) 71 000 000
+    </span>
+    <span class="tb-item">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      contact&#64;itvision.tn
+    </span>
+  </div>
+  <div class="tb-right">
+    <a href="#">FR</a>
+    <span class="tb-sep"></span>
+    <a href="#">EN</a>
+    <span class="tb-sep"></span>
+    <a routerLink="/login">Connexion</a>
+  </div>
+</div>
+
+<!-- NAVBAR -->
+<nav class="navbar" [class.scrolled]="scrolled">
+  <div class="logo">
+    <div class="logo-mark">
+      <svg width="22" height="22" fill="none" viewBox="0 0 32 32">
+        <path d="M6 26L16 6l10 20" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M9.5 19h13" stroke="#f47c20" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <span class="logo-text">It<span>Vision</span></span>
+  </div>
+
+  <ul class="nav-links" [class.open]="menuOpen">
+    <li><a href="#" class="nav-link active">Accueil</a></li>
+    <li><a href="#solutions" class="nav-link">Solutions</a></li>
+    <li><a href="#features" class="nav-link">Fonctionnalités</a></li>
+    <li><a href="#tarifs" class="nav-link">Tarifs</a></li>
+    <li><a href="#temoignages" class="nav-link">Clients</a></li>
+    <li><a href="#contact" class="nav-link">Contact</a></li>
+  </ul>
+
+  <div class="nav-cta">
+    <button class="btn-ghost" routerLink="/demo">Demander une démo</button>
+    <button class="btn-primary-sm" routerLink="/register">Essai gratuit</button>
+  </div>
+
+  <button class="nav-toggle" (click)="toggleMenu()">
+    <span [class.open]="menuOpen"></span>
+    <span [class.open]="menuOpen"></span>
+    <span [class.open]="menuOpen"></span>
+  </button>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-glow2"></div>
+
+  <div class="hero-content">
+    <div class="hero-label">
+      <span class="hero-dot"></span>
+      Plateforme SaaS RH · Nouvelle génération
+    </div>
+
+    <h1 class="hero-title">
+      Transformez la gestion<br>de vos <span>Ressources Humaines</span>
+    </h1>
+
+    <p class="hero-sub">
+      ItVision centralise tous vos processus RH — congés, formations, recrutement
+      et suivi des talents — dans une seule plateforme sécurisée, conçue pour les grandes entreprises.
+    </p>
+
+    <div class="hero-actions">
+      <button class="btn-hero-orange" routerLink="/register">
+        Commencer gratuitement
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+      <button class="btn-hero-ghost" (click)="openDemo()">
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="rgba(255,255,255,0.15)"/><path d="M10 8l6 4-6 4V8z" fill="white"/></svg>
+        Voir la démo
+      </button>
+    </div>
+
+    <div class="hero-trust">
+      <span class="trust-txt">Ils nous font confiance</span>
+      <div class="trust-logos">
+        <span class="trust-pill" *ngFor="let c of clients">{{ c }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard Mockup -->
+  <div class="hero-mockup">
+    <div class="mockup-chrome">
+      <div class="chrome-bar">
+        <span class="c-dot" style="background:#ff5f57"></span>
+        <span class="c-dot" style="background:#febc2e"></span>
+        <span class="c-dot" style="background:#28c840"></span>
+        <div class="chrome-url">
+          <svg width="11" height="11" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          <span>app.itvision.tn/dashboard</span>
+        </div>
+      </div>
+      <div class="mockup-body">
+        <!-- mini sidebar -->
+        <div class="mock-sidebar">
+          <div class="mock-logo-sm"></div>
+          <div class="mock-nav-items">
+            <div class="mock-nav-item active"></div>
+            <div class="mock-nav-item"></div>
+            <div class="mock-nav-item"></div>
+            <div class="mock-nav-item"></div>
+            <div class="mock-nav-item"></div>
+          </div>
+        </div>
+        <!-- main content -->
+        <div class="mock-main">
+          <div class="mock-header-row">
+            <div class="mock-title-block"></div>
+            <div class="mock-btn-sm orange"></div>
+          </div>
+          <div class="mock-kpis">
+            <div class="mock-kpi" *ngFor="let k of mockKpis" [style.border-color]="k.color + '33'">
+              <div class="mk-label"></div>
+              <div class="mk-value" [style.background]="k.color"></div>
+              <div class="mk-delta"></div>
+            </div>
+          </div>
+          <div class="mock-grid">
+            <div class="mock-chart-panel">
+              <div class="mock-panel-title"></div>
+              <div class="mock-bars">
+                <div class="mock-bar" *ngFor="let b of mockBars" [style.height.px]="b.h" [style.background]="b.active ? '#f47c20' : 'rgba(255,255,255,0.12)'"></div>
+              </div>
+              <div class="mock-bar-labels">
+                <span *ngFor="let b of mockBars"></span>
+              </div>
+            </div>
+            <div class="mock-list-panel">
+              <div class="mock-panel-title"></div>
+              <div class="mock-list-item" *ngFor="let i of [1,2,3,4]">
+                <div class="mock-avatar"></div>
+                <div class="mock-item-lines">
+                  <div class="mock-line w70"></div>
+                  <div class="mock-line w45"></div>
+                </div>
+                <div class="mock-tag" [style.background]="i === 1 || i === 3 ? 'rgba(244,124,32,0.2)' : 'rgba(16,185,129,0.2)'"
+                     [style.color]="i === 1 || i === 3 ? '#f47c20' : '#10b981'">
+                  {{ i === 1 || i === 3 ? 'En attente' : 'Approuvé' }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- floating badges -->
+    <div class="mock-badge badge-tl">
+      <div class="badge-icon green">
+        <svg width="14" height="14" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div>
+        <div class="badge-val">+24%</div>
+        <div class="badge-lbl">Productivité RH</div>
+      </div>
+    </div>
+    <div class="mock-badge badge-br">
+      <div class="badge-icon orange">
+        <svg width="14" height="14" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+      </div>
+      <div>
+        <div class="badge-val">142</div>
+        <div class="badge-lbl">Employés actifs</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TRUST BAR -->
+<div class="trustbar">
+  <div class="trust-item" *ngFor="let t of trustItems">
+    <span class="trust-icon" [innerHTML]="sanitizeSvg(t.icon)"></span>
+    <span>{{ t.label }}</span>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section class="section features-section" id="features">
+  <div class="sec-head text-center">
+    <div class="sec-label">Fonctionnalités</div>
+    <h2 class="sec-title">Tout ce qu'il faut pour gérer vos talents</h2>
+    <p class="sec-sub max-600">Une suite complète de modules RH intégrés, pensée pour les directions des ressources humaines des grandes organisations.</p>
+  </div>
+  <div class="features-grid">
+    <div class="feat-card" *ngFor="let f of features">
+      <div class="feat-icon" [style.background]="f.bg">
+        <span [innerHTML]="sanitizeSvg(f.icon)"></span>
+      </div>
+      <h3 class="feat-title">{{ f.title }}</h3>
+      <p class="feat-desc">{{ f.desc }}</p>
+      <a href="#" class="feat-link">En savoir plus <span>→</span></a>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how-section">
+  <div class="how-inner">
+    <div class="sec-head text-center">
+      <div class="sec-label light">Comment ça marche</div>
+      <h2 class="sec-title white">Déployé en 4 étapes simples</h2>
+      <p class="sec-sub light max-560">De la configuration initiale à l'adoption complète par vos équipes, ItVision vous accompagne à chaque étape.</p>
+    </div>
+    <div class="steps-row">
+      <div class="step" *ngFor="let s of steps; let i = index">
+        <div class="step-num">
+          <div class="step-num-inner">{{ i + 1 }}</div>
+        </div>
+        <div class="step-icon" [innerHTML]="sanitizeSvg(s.icon)"></div>
+        <h4 class="step-title">{{ s.title }}</h4>
+        <p class="step-desc">{{ s.desc }}</p>
+      </div>
+      <div class="step-connector" *ngFor="let c of [1,2,3]"></div>
+    </div>
+  </div>
+</section>
+
+<!-- SOLUTIONS / WHY US -->
+<section class="section solutions-section" id="solutions">
+  <div class="solutions-inner">
+    <div class="sol-left">
+      <div class="sec-label">Pourquoi ItVision</div>
+      <h2 class="sec-title">La plateforme RH pensée pour les grandes entreprises</h2>
+      <p class="sec-sub">ItVision répond aux exigences de sécurité, de conformité et de scalabilité des ETI et grands groupes.</p>
+      <div class="sol-tabs">
+        <div class="sol-tab" *ngFor="let t of solTabs; let i = index"
+             [class.active]="activeSol === i" (click)="activeSol = i">
+          <div class="sol-tab-icon" [innerHTML]="sanitizeSvg(t.icon)"></div>
+          <div>
+            <div class="sol-tab-title">{{ t.title }}</div>
+            <div class="sol-tab-desc" *ngIf="activeSol === i">{{ t.desc }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="sol-right">
+      <div class="sol-visual">
+        <div class="sol-vis-header">
+          <span class="sol-dot" style="background:#ff5f57"></span>
+          <span class="sol-dot" style="background:#febc2e"></span>
+          <span class="sol-dot" style="background:#28c840"></span>
+          <span class="sol-vis-title">{{ solTabs[activeSol].title }}</span>
+        </div>
+        <div class="sol-vis-body">
+          <div class="sol-card" *ngFor="let c of solTabs[activeSol].cards">
+            <div class="sol-card-icon" [style.background]="c.bg" [innerHTML]="sanitizeSvg(c.icon)"></div>
+            <div>
+              <div class="sol-card-title">{{ c.title }}</div>
+              <div class="sol-card-sub">{{ c.sub }}</div>
+            </div>
+            <div class="sol-card-badge" [class]="c.status">{{ c.badge }}</div>
+          </div>
+          <div class="sol-stats-row">
+            <div class="sol-stat" *ngFor="let s of solTabs[activeSol].stats">
+              <div class="sol-stat-val" [style.color]="s.color">{{ s.val }}</div>
+              <div class="sol-stat-lbl">{{ s.lbl }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS BANNER -->
+<div class="stats-banner">
+  <div class="stats-inner">
+    <div class="stat-item" *ngFor="let s of statsItems">
+      <div class="stat-val">{{ s.val }}</div>
+      <div class="stat-lbl">{{ s.lbl }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- PRICING -->
+<section class="section pricing-section" id="tarifs">
+  <div class="sec-head text-center">
+    <div class="sec-label">Tarifs</div>
+    <h2 class="sec-title">Des offres adaptées à votre taille</h2>
+    <p class="sec-sub max-560">Choisissez le plan qui correspond à votre organisation. Tous les plans incluent un support dédié.</p>
+  </div>
+  <div class="toggle-billing">
+    <span [class.active]="!annuel" (click)="annuel = false">Mensuel</span>
+    <div class="toggle-track" (click)="annuel = !annuel">
+      <div class="toggle-thumb" [class.right]="annuel"></div>
+    </div>
+    <span [class.active]="annuel" (click)="annuel = true">Annuel <em>−20%</em></span>
+  </div>
+  <div class="pricing-grid">
+    <div class="price-card" *ngFor="let p of plans" [class.featured]="p.featured">
+      <div class="price-badge" *ngIf="p.badge">{{ p.badge }}</div>
+      <div class="price-plan">{{ p.name }}</div>
+      <div class="price-amount">
+        <span class="price-currency">DT</span>
+        <span class="price-val">{{ annuel ? p.priceYear : p.priceMonth }}</span>
+        <span class="price-per">/mois</span>
+      </div>
+      <p class="price-desc">{{ p.desc }}</p>
+      <ul class="price-features">
+        <li *ngFor="let f of p.features">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          {{ f }}
+        </li>
+      </ul>
+      <button class="price-btn" [class.featured-btn]="p.featured" routerLink="/register">
+        {{ p.cta }}
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="section testi-section" id="temoignages">
+  <div class="sec-head text-center">
+    <div class="sec-label">Témoignages</div>
+    <h2 class="sec-title">Ce que disent nos clients</h2>
+    <p class="sec-sub max-560">Plus de 500 entreprises font confiance à ItVision pour gérer leurs ressources humaines.</p>
+  </div>
+  <div class="testi-grid">
+    <div class="testi-card" *ngFor="let t of testimonials">
+      <div class="testi-quote">"</div>
+      <p class="testi-text">{{ t.text }}</p>
+      <div class="testi-stars">
+        <svg *ngFor="let s of [1,2,3,4,5]" width="14" height="14" viewBox="0 0 24 24" fill="#f47c20"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      </div>
+      <div class="testi-author">
+        <div class="testi-avatar" [style.background]="t.bg">{{ t.initials }}</div>
+        <div>
+          <div class="testi-name">{{ t.name }}</div>
+          <div class="testi-role">{{ t.role }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="section faq-section" id="faq">
+  <div class="faq-inner">
+    <div class="faq-left">
+      <div class="sec-label">FAQ</div>
+      <h2 class="sec-title">Questions fréquentes</h2>
+      <p class="sec-sub">Vous ne trouvez pas votre réponse ?</p>
+      <button class="btn-contact" routerLink="/contact">Contactez-nous →</button>
+    </div>
+    <div class="faq-right">
+      <div class="faq-item" *ngFor="let f of faqs; let i = index" [class.open]="openFaq === i">
+        <div class="faq-question" (click)="toggleFaq(i)">
+          <span>{{ f.q }}</span>
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" [class.rotated]="openFaq === i"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-answer" *ngIf="openFaq === i">{{ f.a }}</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA FINAL -->
+<section class="cta-section" id="contact">
+  <div class="cta-inner">
+    <div class="cta-glow"></div>
+    <div class="sec-label light">Passez à l'action</div>
+    <h2 class="cta-title">Prêt à moderniser votre<br>gestion RH ?</h2>
+    <p class="cta-sub">Rejoignez plus de 500 entreprises qui ont déjà transformé leurs processus RH avec ItVision.</p>
+    <div class="cta-actions">
+      <button class="btn-hero-orange" routerLink="/register">Démarrer gratuitement</button>
+      <button class="btn-hero-ghost" routerLink="/demo">Planifier une démo</button>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-top">
+    <div class="footer-brand">
+      <div class="logo" style="margin-bottom:14px">
+        <div class="logo-mark">
+          <svg width="22" height="22" fill="none" viewBox="0 0 32 32">
+            <path d="M6 26L16 6l10 20" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M9.5 19h13" stroke="#f47c20" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="logo-text" style="color:white">It<span>Vision</span></span>
+      </div>
+      <p class="footer-tagline">La plateforme RH des grandes entreprises tunisiennes et africaines.</p>
+      <div class="footer-socials">
+        <a href="#" class="social-btn" aria-label="LinkedIn">
+          <svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z"/><circle cx="4" cy="4" r="2"/></svg>
+        </a>
+        <a href="#" class="social-btn" aria-label="Twitter">
+          <svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24"><path d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col" *ngFor="let col of footerCols">
+        <h4>{{ col.title }}</h4>
+        <a *ngFor="let l of col.links" href="#">{{ l }}</a>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2025 ItVision. Tous droits réservés.</span>
+    <span>Conçu et développé en Tunisie 🇹🇳</span>
+  </div>
+</footer>
