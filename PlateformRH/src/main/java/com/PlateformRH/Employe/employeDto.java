@@ -1,5 +1,6 @@
 package com.PlateformRH.Employe;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -17,6 +18,7 @@ public class employeDto {
     private String Matricule;
     private String poste;
     private String departement;
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private Date DateEmbauche;
     private String typeContrat;
     private int soldeConge;

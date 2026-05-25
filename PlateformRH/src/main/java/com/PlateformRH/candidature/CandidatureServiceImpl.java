@@ -21,6 +21,10 @@ public class CandidatureServiceImpl implements CandidatureService {
         OffreEmploi offre = offreRepo.findById(offreId)
                 .orElseThrow(() -> new RuntimeException("Offre non trouvée"));
 
+        if (c.getEmployeId() != null && repo.existsByOffreIdAndEmployeId(offreId, c.getEmployeId())) {
+            throw new RuntimeException("Vous avez deja postule a cette offre");
+        }
+
         c.setOffre(offre);
         c.setStatut(StatutCandidature.EN_ATTENTE);
 
@@ -60,6 +64,11 @@ public class CandidatureServiceImpl implements CandidatureService {
         dto.setId(c.getId());
         dto.setNomCandidat(c.getNomCandidat());
         dto.setEmail(c.getEmail());
+        dto.setEmployeId(c.getEmployeId());
+        dto.setMatriculeEmploye(c.getMatriculeEmploye());
+        dto.setTelephone(c.getTelephone());
+        dto.setPoste(c.getPoste());
+        dto.setDepartement(c.getDepartement());
         dto.setCv(c.getCv());
         dto.setLettreMotivation(c.getLettreMotivation());
 

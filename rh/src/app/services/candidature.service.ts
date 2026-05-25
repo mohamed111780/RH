@@ -22,4 +22,8 @@ export class CandidatureService {
   getByOffre(offreId: number): Observable<Candidature[]> {
     return this.http.get<Candidature[]>(`${this.apiUrl}/offre/${offreId}`);
   }
+
+  changeStatut(id: number, statut: string): Observable<Candidature> {
+    return this.http.put<Candidature>(`${this.apiUrl}/${id}/statut/${statut}`, {});
+  }
 }

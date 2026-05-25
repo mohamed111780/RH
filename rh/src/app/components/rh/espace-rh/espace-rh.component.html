@@ -33,12 +33,17 @@
     <i class="fas fa-briefcase"></i> Offres d'emploi
     <span class="nav-badge">{{ currentOffres.length }}</span>
   </div>
-  <div class="nav-item" (click)="showPage('offres'); kanbanView=true; kanbanOffre=currentOffres[0]">
+  <div class="nav-item" (click)="showPage('offres'); currentOffres.length && showKanban(currentOffres[0])">
     <i class="fas fa-layer-group"></i> Kanban candidatures
   </div>
   <div class="nav-item" [class.active]="activePage==='analytics'" (click)="showPage('analytics')">
     <i class="fas fa-robot"></i> Analytique IA
   </div>
+
+  <div class="sidebar-section">Compte</div>
+  <button type="button" class="nav-item logout-item" (click)="logoutRh()">
+    <i class="fas fa-sign-out-alt"></i> Deconnexion
+  </button>
 
   <div class="sidebar-bottom">
     <div class="user-card">
@@ -211,7 +216,6 @@
         <div class="section-title" style="margin-bottom:0;">
           <i class="fas fa-users" style="color:var(--teal2);"></i> Gestion des Employés
         </div>
-        <button class="btn-primary" (click)="openModalEmp()"><i class="fas fa-plus"></i> Ajouter employé</button>
       </div>
 
       <div class="stats-grid">
@@ -232,39 +236,78 @@
         </div>
         <div class="stat-card sky">
           <div class="stat-top"><div class="stat-icon sky"><i class="fas fa-laptop-house"></i></div></div>
-          <div class="stat-value">{{ remoteEmployees }}</div>
-          <div class="stat-label">Remote</div>
+          <div class="stat-value">{{ absentEmployees }}</div>
+          <div class="stat-label">Absents</div>
         </div>
       </div>
 
       <div class="card">
         <div class="card-header">
-          <div class="card-title"><i class="fas fa-list"></i> Liste des employés</div>
-          <select class="filter-select" [(ngModel)]="filterDept">
-            <option *ngFor="let d of deptOptions">{{ d }}</option>
-          </select>
+          <div>
+            <div class="card-title"><i class="fas fa-list"></i> Registre des employés</div>
+            <div class="card-subtitle">Vue consolidée des informations d'identité, d'affectation et des actions RH.</div>
+          </div>
+          <div class="employees-toolbar">
+            <select class="filter-select" [(ngModel)]="filterDept">
+              <option *ngFor="let d of deptOptions">{{ d }}</option>
+            </select>
+          </div>
         </div>
 
-        <div class="emp-full-item" *ngFor="let e of filteredEmployees">
-          <div class="emp-avatar"
-               [style.background]="e.color" [style.color]="e.textColor"
-               style="width:40px; height:40px; font-size:12px;">{{ e.initials }}</div>
-          <div class="emp-full-info">
-            <strong>{{ e.name }}</strong>
-            <span>{{ e.role }}</span>
-          </div>
-          <span class="emp-dept-badge"
-                [style.background]="getDeptStyle(e.dept).bg"
-                [style.color]="getDeptStyle(e.dept).color">{{ e.dept }}</span>
-          <span class="status-pill" [ngClass]="getStatusPill(e.status).cls">{{ getStatusPill(e.status).label }}</span>
-          <span class="absence-badge"
-                [ngClass]="e.absences === 0 ? 'low' : e.absences <= 3 ? 'mid' : 'high'">
-            {{ e.absences }} abs.
-          </span>
-          <div class="emp-actions">
-            <div class="action-btn" title="Voir profil" (click)="showToast('Profil de ' + e.name + ' ouvert')"><i class="fas fa-eye"></i></div>
-            <div class="action-btn" title="Modifier"   (click)="showToast('Modification de ' + e.name)"><i class="fas fa-edit"></i></div>
-            <div class="action-btn" title="Message"    (click)="showToast('Message envoyé à ' + e.name)"><i class="fas fa-envelope"></i></div>
+        <div class="empty-state" *ngIf="loadingEmployees">
+          <i class="fas fa-spinner fa-spin"></i>
+          <p>Chargement des employés...</p>
+        </div>
+
+        <div class="empty-state" *ngIf="!loadingEmployees && filteredEmployees.length === 0">
+          <i class="fas fa-users-slash"></i>
+          <p>Aucun employé disponible pour ce filtre</p>
+        </div>
+
+        <div class="employees-table-wrap" *ngIf="!loadingEmployees && filteredEmployees.length > 0">
+          <div class="employees-table">
+            <div class="employees-table-head">
+              <span>Employé</span>
+              <span>Contact</span>
+              <span>Affectation RH</span>
+              <span>Contrat</span>
+              <span>Congés</span>
+            </div>
+
+            <div class="employees-table-row" *ngFor="let e of filteredEmployees">
+              <div class="employee-cell identity">
+                <div class="emp-avatar"
+                     [style.background]="e.color" [style.color]="e.textColor"
+                     style="width:40px; height:40px; font-size:12px;">{{ e.initials }}</div>
+                <div class="emp-full-info">
+                  <strong>{{ e.name }}</strong>
+                  <span>{{ e.matricule }}</span>
+                </div>
+              </div>
+
+              <div class="employee-cell">
+                <strong class="employee-inline-label">{{ e.email }}</strong>
+              </div>
+
+              <div class="employee-cell">
+                <strong class="employee-inline-label">{{ e.role }}</strong>
+                <span class="emp-dept-badge"
+                      [style.background]="getDeptStyle(e.dept).bg"
+                      [style.color]="getDeptStyle(e.dept).color">{{ e.dept }}</span>
+              </div>
+
+              <div class="employee-cell">
+                <strong class="employee-inline-label">{{ e.contractType }}</strong>
+                <span>Depuis {{ e.joinDate ? formatDate(e.joinDate) : '-' }}</span>
+              </div>
+
+              <div class="employee-cell">
+                <strong class="employee-inline-label">{{ e.leaveBalance }} j</strong>
+                <span class="status-pill" [ngClass]="getStatusPill(e.status).cls">{{ getStatusPill(e.status).label }}</span>
+              </div>
+
+              <!-- Actions removed: no edit/delete controls in this view per request -->
+            </div>
           </div>
         </div>
       </div>
@@ -276,8 +319,8 @@
         <div class="section-title" style="margin-bottom:0;">
           <i class="fas fa-umbrella-beach" style="color:var(--amber);"></i> Congés & Absences
         </div>
-        <button class="btn-primary" (click)="showToast('Formulaire nouvelle demande ouvert')">
-          <i class="fas fa-plus"></i> Nouvelle demande
+        <button class="btn-primary" (click)="loadLeaveRequests()">
+          <i class="fas fa-rotate-right"></i> Actualiser
         </button>
       </div>
 
@@ -309,30 +352,55 @@
         <!-- Demandes -->
         <div class="card">
           <div class="card-header">
-            <div class="card-title"><i class="fas fa-clock"></i> Demandes en attente</div>
+            <div class="card-title"><i class="fas fa-clock"></i> Gestion des demandes</div>
             <span class="nav-badge amber">{{ pendingLeaves }}</span>
           </div>
 
-          <div *ngFor="let r of leaveRequests" class="emp-item">
-            <div class="emp-avatar" [style.background]="'rgba(255,255,255,0.07)'" [style.color]="r.color"
-                 style="width:36px;height:36px;font-size:12px;">{{ r.initials }}</div>
+          <div class="empty-state" *ngIf="loadingLeaveRequests">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Chargement des demandes de conge...</p>
+          </div>
+
+          <div class="empty-state" *ngIf="!loadingLeaveRequests && leaveRequests.length === 0">
+            <i class="fas fa-calendar-check"></i>
+            <p>Aucune demande de conge pour le moment</p>
+          </div>
+
+          <div *ngFor="let r of leaveRequests" class="emp-item leave-request-row">
+            <div class="emp-avatar leave-avatar" [style.background]="'rgba(255,255,255,0.07)'"
+                 style="width:36px;height:36px;font-size:12px;">{{ leaveEmployeeInitials(r) }}</div>
             <div class="emp-info">
-              <strong>{{ r.name }}</strong>
-              <span>{{ r.dates }} · {{ r.type }} · {{ r.days }}j</span>
+              <strong>{{ leaveEmployeeName(r) }}</strong>
+              <span>{{ leaveDatesLabel(r) }} · {{ leaveTypeLabel(r.typeConge) }} · {{ leaveDays(r) }}j</span>
+              <span class="leave-meta-line">{{ r.matriculeEmploye }}</span>
             </div>
 
-            <ng-container [ngSwitch]="getLeaveStatus(r)">
-              <ng-container *ngSwitchCase="'pending'">
-                <div class="action-btn" style="color:var(--green);"  (click)="approveLeave(r)"><i class="fas fa-check"></i></div>
-                <div class="action-btn" style="color:var(--red);"    (click)="rejectLeave(r)"><i class="fas fa-times"></i></div>
+            <div class="leave-request-side">
+              <span class="status-pill" [ngClass]="leaveStatusClass(r.statutDemande)">{{ leaveStatusLabel(r.statutDemande) }}</span>
+
+              <ng-container [ngSwitch]="r.statutDemande">
+                <ng-container *ngSwitchCase="'EN_ATTENTE'">
+                  <div class="leave-request-actions">
+                    <button class="action-btn success" type="button" [disabled]="updatingLeaveRequestId === r.id" (click)="approveLeave(r)">
+                      <i class="fas fa-check"></i>
+                    </button>
+                    <button class="action-btn danger" type="button" [disabled]="updatingLeaveRequestId === r.id" (click)="rejectLeave(r)">
+                      <i class="fas fa-times"></i>
+                    </button>
+                    <button class="action-btn warning" type="button" [disabled]="updatingLeaveRequestId === r.id" (click)="cancelLeave(r)">
+                      <i class="fas fa-ban"></i>
+                    </button>
+                  </div>
+                </ng-container>
+                <ng-container *ngSwitchDefault>
+                  <div class="leave-request-actions">
+                    <button class="action-btn warning" type="button" *ngIf="r.statutDemande !== 'ANNULE'" [disabled]="updatingLeaveRequestId === r.id" (click)="cancelLeave(r)">
+                      <i class="fas" [class.fa-ban]="updatingLeaveRequestId !== r.id" [class.fa-spinner]="updatingLeaveRequestId === r.id" [class.fa-spin]="updatingLeaveRequestId === r.id"></i>
+                    </button>
+                  </div>
+                </ng-container>
               </ng-container>
-              <ng-container *ngSwitchCase="'approved'">
-                <span class="status-pill active">Approuvé</span>
-              </ng-container>
-              <ng-container *ngSwitchCase="'rejected'">
-                <span class="status-pill absent">Refusé</span>
-              </ng-container>
-            </ng-container>
+            </div>
           </div>
         </div>
       </div>
@@ -364,58 +432,55 @@
 
     <!-- ═══════════════════ FORMATIONS ═══════════════════ -->
     <div class="page" [class.active]="activePage==='formations'">
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:22px;">
-        <div class="section-title" style="margin-bottom:0;">
-          <i class="fas fa-graduation-cap" style="color:var(--teal2);"></i> Formations & Compétences
-        </div>
-        <button class="btn-primary" (click)="showToast('Nouvelle formation créée')">
-          <i class="fas fa-plus"></i> Créer formation
-        </button>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+        <div class="section-title" style="margin-bottom:0;"><i class="fas fa-graduation-cap" style="color:var(--accent3);"></i> Formations & Compétences</div>
+        <button class="btn-primary" (click)="showToast('Nouvelle formation créée')"><i class="fas fa-plus"></i> Créer formation</button>
       </div>
 
       <div class="stats-grid">
-        <div class="stat-card teal">
-          <div class="stat-top"><div class="stat-icon teal"><i class="fas fa-play-circle"></i></div></div>
-          <div class="stat-value">{{ formations.length }}</div><div class="stat-label">En cours</div>
-        </div>
-        <div class="stat-card purple">
-          <div class="stat-top"><div class="stat-icon purple"><i class="fas fa-check-double"></i></div></div>
-          <div class="stat-value">124</div><div class="stat-label">Complétées</div>
-        </div>
-        <div class="stat-card amber">
-          <div class="stat-top"><div class="stat-icon amber"><i class="fas fa-users"></i></div></div>
-          <div class="stat-value">89</div><div class="stat-label">Employés inscrits</div>
-        </div>
-        <div class="stat-card pink">
-          <div class="stat-top"><div class="stat-icon pink"><i class="fas fa-star"></i></div></div>
-          <div class="stat-value">4.7</div><div class="stat-label">Note moyenne</div>
-        </div>
+        <div class="stat-card green"><div class="stat-top"><div class="stat-icon green"><i class="fas fa-play-circle"></i></div></div><div class="stat-value">{{ activeFormationsCount }}</div><div class="stat-label">En cours</div></div>
+        <div class="stat-card purple"><div class="stat-top"><div class="stat-icon purple"><i class="fas fa-check-double"></i></div></div><div class="stat-value">{{ completedFormationsCount }}</div><div class="stat-label">Complétées</div></div>
+        <div class="stat-card amber"><div class="stat-top"><div class="stat-icon amber"><i class="fas fa-users"></i></div></div><div class="stat-value">{{ formationsEnrolledCount }}</div><div class="stat-label">Capacité totale</div></div>
+        <div class="stat-card cyan"><div class="stat-top"><div class="stat-icon cyan"><i class="fas fa-star"></i></div></div><div class="stat-value">{{ formationsAverageRating }}</div><div class="stat-label">Note moyenne</div></div>
       </div>
 
       <div class="tabs">
-        <div class="tab" *ngFor="let t of ['Toutes','Tech','Soft Skills','Leadership']"
-             [class.active]="formationTab===t" (click)="formationTab=t">{{ t }}</div>
+        <div class="tab" [class.active]="selectedFormationTab === 'all'"  (click)="selectedFormationTab = 'all'">Toutes</div>
+        <div class="tab" [class.active]="selectedFormationTab === 'tech'" (click)="selectedFormationTab = 'tech'">Tech</div>
+        <div class="tab" [class.active]="selectedFormationTab === 'soft'" (click)="selectedFormationTab = 'soft'">Soft Skills</div>
+        <div class="tab" [class.active]="selectedFormationTab === 'lead'" (click)="selectedFormationTab = 'lead'">Leadership</div>
       </div>
 
-      <div class="formations-grid">
-        <div class="formation-card" *ngFor="let f of filteredFormations"
-             (click)="showToast('Formation : ' + f.title)">
-          <span class="formation-tag" [ngClass]="f.tag">{{ f.tagLabel }}</span>
+      <div class="empty-state" *ngIf="loadingFormations">
+        <i class="fas fa-spinner fa-spin"></i>
+        <p>Chargement des formations...</p>
+      </div>
+
+      <div class="empty-state" *ngIf="!loadingFormations && filteredFormations.length === 0">
+        <i class="fas fa-user-graduate"></i>
+        <p>Aucune formation disponible pour ce filtre</p>
+      </div>
+
+      <div class="formations-grid" *ngIf="!loadingFormations && filteredFormations.length > 0">
+        <div class="formation-card" *ngFor="let f of filteredFormations" (click)="showToast('Formation: ' + f.title)">
+          <span class="formation-tag" [class]="f.tag">{{ f.tagLabel }}</span>
           <h4>{{ f.title }}</h4>
           <p>{{ f.desc }}</p>
           <div style="margin-bottom:10px;">
-            <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--text3); margin-bottom:4px;">
-              <span>Progression moyenne</span><span>{{ f.progress }}%</span>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:5px;">
+              <span>Progression moyenne</span>
+              <span>{{ f.progress }}%</span>
             </div>
             <div class="progress-bar">
-              <div class="progress-fill" [style.width.%]="f.progress"
-                   [style.background]="f.tag==='tech' ? 'var(--teal)' : f.tag==='soft' ? 'var(--accent)' : 'var(--amber)'"></div>
+              <div class="progress-fill" [style.width]="f.progress + '%'"
+                [style.background]="f.tag === 'tech' ? 'var(--accent)' : f.tag === 'soft' ? 'var(--accent6)' : 'var(--accent4)'">
+              </div>
             </div>
           </div>
           <div class="formation-meta">
             <span><i class="fas fa-clock"></i>{{ f.duration }}</span>
             <span><i class="fas fa-users"></i>{{ f.enrolled }} inscrits</span>
-            <span><i class="fas fa-star" style="color:var(--amber);"></i>{{ f.rating }}</span>
+            <span><i class="fas fa-star" style="color:var(--accent4);"></i>{{ f.rating }}</span>
           </div>
         </div>
       </div>
@@ -423,9 +488,7 @@
 
     <!-- ═══════════════════ OFFRES & KANBAN ═══════════════════ -->
     <div class="page" [class.active]="activePage==='offres'">
-
-      <!-- LISTE OFFRES -->
-      <div class="offre-view" [class.active]="!kanbanView">
+      <ng-container *ngIf="!kanbanView">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:22px;">
           <div class="section-title" style="margin-bottom:0;">
             <i class="fas fa-briefcase" style="color:var(--teal2);"></i> Offres d'emploi
@@ -433,47 +496,74 @@
           <button class="btn-primary" (click)="openModalOffre()"><i class="fas fa-plus"></i> Nouvelle offre</button>
         </div>
 
-        <div class="offres-grid">
-          <div class="offre-card" [ngClass]="o.type" *ngFor="let o of currentOffres"
-               (click)="showKanban(o)">
+        <div class="card" *ngIf="loadingOffres" style="padding:18px;text-align:center;color:var(--text3);margin-bottom:16px;">
+          Chargement des offres...
+        </div>
+
+        <div class="card" *ngIf="!loadingOffres && !currentOffres.length" style="padding:18px;text-align:center;color:var(--text3);margin-bottom:16px;">
+          Aucune offre disponible pour le moment.
+        </div>
+
+        <div class="offres-grid" *ngIf="!loadingOffres && currentOffres.length">
+          <div class="offre-card" [ngClass]="o.type" *ngFor="let o of currentOffres" (click)="showKanban(o)">
             <div style="display:flex; align-items:start; justify-content:space-between; margin-bottom:8px;">
-              <span class="offre-niveau" [ngClass]="o.niveau">{{ o.niveauLabel }}</span>
-              <span style="font-size:10px; color:var(--text3);">Il y a {{ o.date }}</span>
+              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <span class="offre-niveau" [ngClass]="o.niveau">{{ o.niveauLabel }}</span>
+                <span class="offre-status" [ngClass]="offreStatusClass(o.statut)">{{ offreStatusLabel(o.statut) }}</span>
+              </div>
+              <span style="font-size:10px; color:var(--text3);">{{ o.date }}</span>
             </div>
             <h4>{{ o.title }}</h4>
             <div class="offre-dept"><i class="fas fa-building" style="margin-right:4px;"></i>{{ o.dept }}</div>
+            <div class="offre-dept"><i class="fas fa-file-signature" style="margin-right:4px;"></i>{{ o.contrat }} · {{ o.offreType }}</div>
+            <div class="offre-dept"><i class="fas fa-users" style="margin-right:4px;"></i>{{ o.candidatures }} candidature{{ o.candidatures > 1 ? 's' : '' }}</div>
+            <p class="offre-description">{{ o.description || 'Aucune description disponible pour cette offre.' }}</p>
+            <div class="offre-skills-title"><i class="fas fa-code"></i> Competences</div>
             <div class="offre-tags">
               <span class="offre-tag" *ngFor="let t of o.tags">{{ t }}</span>
+              <span class="offre-tag empty" *ngIf="!o.tags.length">Aucune competence renseignee</span>
             </div>
             <div class="offre-footer">
               <span><i class="fas fa-file-alt" style="margin-right:4px;"></i>Voir candidatures</span>
               <span class="candidatures-count">{{ o.candidatures }} candidatures</span>
             </div>
+            <div class="offre-actions">
+              <button class="btn-secondary offre-action-btn" (click)="$event.stopPropagation(); openEditModal(o)">
+                <i class="fas fa-pen"></i> Modifier
+              </button>
+              <button class="btn-secondary offre-action-btn danger" [disabled]="o.statut === 'FERMEE'" (click)="$event.stopPropagation(); cloturerOffre(o)">
+                <i class="fas fa-lock"></i> Cloturer
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      </ng-container>
 
-      <!-- KANBAN VIEW -->
-      <div class="offre-view" [class.active]="kanbanView" *ngIf="kanbanOffre">
+      <ng-container *ngIf="kanbanView && kanbanOffre">
         <div class="back-btn" (click)="backToOffres()">
           <i class="fas fa-arrow-left"></i> Retour aux offres
         </div>
 
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+        <div class="kanban-offre-header">
           <div>
-            <div class="section-title" style="margin-bottom:4px;">
-              <i class="fas fa-layer-group" style="color:var(--teal2);"></i>
-              {{ kanbanOffre.title }}
-            </div>
-            <div style="font-size:12px; color:var(--text3);">
-              {{ kanbanOffre.dept }} · {{ kanbanOffre.niveauLabel }} · Publié il y a {{ kanbanOffre.date }}
-            </div>
+            <h3>{{ kanbanOffre.title }}</h3>
+            <p>{{ kanbanOffre.dept }} · {{ kanbanOffre.niveauLabel }} · {{ offreStatusLabel(kanbanOffre.statut) }} · Publié {{ kanbanOffre.date }}</p>
           </div>
-          <div class="ai-badge"><i class="fas fa-robot"></i> IA Matching activé</div>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div class="kanban-ai-info">
+              <i class="fas fa-robot"></i>
+              <span>Tri IA activé — Score de matching par compétences</span>
+            </div>
+            <div class="ai-badge"><i class="fas fa-robot"></i> IA Active</div>
+          </div>
         </div>
 
-        <div class="kanban-board" *ngIf="currentKanbanData">
-          <div class="kanban-col" *ngFor="let col of kanbanCols">
+        <div class="card" *ngIf="loadingKanban" style="padding:18px;text-align:center;color:var(--text3);margin-bottom:16px;">
+          Chargement des candidatures...
+        </div>
+
+        <div class="kanban-board" *ngIf="currentKanbanData && !loadingKanban">
+          <div class="kanban-col" *ngFor="let col of kanbanCols" (dragover)="allowDrop($event)" (drop)="onDrop($event, col.key === 'trier' ? 'EN_ATTENTE' : col.key === 'entretien' ? 'ACCEPTEE' : 'REFUSEE')">
             <div class="kanban-col-header">
               <div class="kanban-col-title">
                 <div class="col-dot" [ngClass]="col.dotClass"></div>
@@ -483,7 +573,7 @@
               <span class="col-count" [ngClass]="col.countClass">{{ getKanbanCol(col.key).length }}</span>
             </div>
 
-            <div class="candidature-card" *ngFor="let c of getKanbanCol(col.key)">
+            <div class="candidature-card" *ngFor="let c of getKanbanCol(col.key)" draggable="true" (dragstart)="onDragStart(c)" (dragend)="onDragEnd()">
               <div class="cand-header">
                 <div class="cand-avatar" [style.background]="c.color" [style.color]="c.tc">{{ c.initials }}</div>
                 <div class="cand-info">
@@ -497,35 +587,29 @@
                   <div class="ai-score-value" [style.color]="scoreColor(c.score)">{{ c.score }}%</div>
                 </div>
                 <div class="score-bar">
-                  <div class="score-fill" [ngClass]="scoreClass(c.score)" [style.width.%]="c.score"></div>
+                  <div class="score-fill" [ngClass]="scoreClass(c.score)" [style.width]="c.score + '%'"></div>
                 </div>
               </div>
               <div class="cand-tags">
                 <span class="cand-tag" *ngFor="let t of c.tags"
                       [ngClass]="tagMatchClass(t, currentKanbanData!.offreTags)">{{ t }}</span>
               </div>
-              <div style="display:flex; gap:5px; margin-top:9px;" *ngIf="col.key !== 'rejetee'">
-                <button class="action-btn" *ngIf="col.key==='trier'"
-                        style="flex:1; width:auto; padding:5px; font-size:10.5px; color:var(--teal2);"
-                        (click)="showToast('Entretien planifié pour ' + c.name)">
-                  <i class="fas fa-calendar-plus" style="margin-right:3px;"></i> Entretien
+              <div class="cand-action-row">
+                <button class="cand-action-btn" *ngIf="col.key==='trier'" style="color:var(--teal2);" (click)="showToast('Entretien planifié pour ' + c.name)">
+                  <i class="fas fa-calendar-plus"></i> Entretien
                 </button>
-                <button class="action-btn" *ngIf="col.key==='trier'"
-                        style="color:var(--red); padding:5px 10px; width:auto;"
-                        (click)="showToast(c.name + ' rejeté')">
+                <button class="cand-action-btn reject" *ngIf="col.key==='trier'" style="color:var(--pink);" (click)="showToast(c.name + ' rejeté')">
                   <i class="fas fa-times"></i>
                 </button>
-                <button class="action-btn" *ngIf="col.key==='entretien'"
-                        style="flex:1; width:auto; padding:5px; font-size:10.5px; color:var(--green);"
-                        (click)="showToast('Offre envoyée à ' + c.name + ' 🎉')">
-                  <i class="fas fa-paper-plane" style="margin-right:3px;"></i> Envoyer offre
+                <button class="cand-action-btn" *ngIf="col.key==='entretien'" style="color:var(--teal);" (click)="showToast('Offre envoyée à ' + c.name + ' 🎉')">
+                  <i class="fas fa-paper-plane"></i> Envoyer offre
                 </button>
               </div>
-              <div class="cand-date"><i class="fas fa-clock" style="margin-right:3px;"></i>Reçue il y a {{ (c.score % 5) + 1 }}j</div>
+              <div class="cand-date"><i class="fas fa-envelope" style="margin-right:4px;"></i>{{ c.email }}</div>
             </div>
           </div>
         </div>
-      </div>
+      </ng-container>
     </div>
 
     <!-- ═══════════════════ ANALYTICS IA ═══════════════════ -->
@@ -627,8 +711,8 @@
 <!-- ════════════════════ MODAL : OFFRE ════════════════════ -->
 <div class="modal-overlay" [class.open]="modalOffreOpen" (click)="$event.target === $event.currentTarget && closeModalOffre()">
   <div class="modal">
-    <h2>📋 Publier une offre d'emploi</h2>
-    <p>Créez et publiez une nouvelle offre. L'IA analysera automatiquement les candidatures.</p>
+    <h2>{{ editingOffre ? 'Modifier l offre' : 'Publier une offre d emploi' }}</h2>
+    <p>Renseignez les champs de l offre et les competences utilisees par le matching IA.</p>
 
     <div class="form-group">
       <label>Titre du poste *</label>
@@ -636,11 +720,18 @@
     </div>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
       <div class="form-group">
+        <label>Type d'offre</label>
+        <select [(ngModel)]="newOffreType">
+          <option value="EXTERNE">Externe</option>
+          <option value="INTERNE">Interne</option>
+        </select>
+      </div>
+      <div class="form-group">
         <label>Département</label>
         <select [(ngModel)]="newOffreDept">
           <option>Ingénierie</option><option>Design</option>
-          <option>Data & IA</option><option>Marketing</option>
-          <option>Finance</option><option>RH</option><option>Produit</option>
+          <option>Marketing</option><option>Finance</option>
+          <option>Produit</option><option>Data & IA</option>
         </select>
       </div>
       <div class="form-group">
@@ -648,6 +739,12 @@
         <select [(ngModel)]="newOffreNiveau">
           <option>Junior</option><option>Mid-level</option>
           <option>Senior</option><option>Lead</option><option>Manager</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Type de contrat</label>
+        <select [(ngModel)]="newOffreContrat">
+          <option>CDI</option><option>CDD</option><option>Stage</option><option>Freelance</option>
         </select>
       </div>
     </div>
@@ -666,8 +763,13 @@
       </div>
     </div>
     <div class="modal-actions">
-      <button class="btn-primary" (click)="createOffre()"><i class="fas fa-paper-plane"></i> Publier l'offre</button>
       <button class="btn-secondary" (click)="closeModalOffre()">Annuler</button>
+      <button class="btn-primary" *ngIf="!editingOffre" (click)="createOffre()" [disabled]="savingOffre">
+        <i class="fas fa-paper-plane"></i> {{ savingOffre ? 'Publication...' : 'Publier l offre' }}
+      </button>
+      <button class="btn-primary" *ngIf="editingOffre" (click)="saveEditOffre()" [disabled]="savingOffre">
+        <i class="fas fa-save"></i> {{ savingOffre ? 'Enregistrement...' : 'Mettre a jour' }}
+      </button>
     </div>
   </div>
 </div>
@@ -675,40 +777,77 @@
 <!-- ════════════════════ MODAL : EMPLOYÉ ════════════════════ -->
 <div class="modal-overlay" [class.open]="modalEmpOpen" (click)="$event.target === $event.currentTarget && closeModalEmp()">
   <div class="modal">
-    <h2>👤 Ajouter un employé</h2>
-    <p>Renseignez les informations du nouvel employé pour l'intégrer dans le système.</p>
+    <h2>{{ editingEmployee ? 'Mettre à jour un employé' : 'Ajouter un employé' }}</h2>
+    <p>Renseignez les informations RH nécessaires pour {{ editingEmployee ? 'mettre à jour le dossier employé.' : 'créer le compte collaborateur.' }}</p>
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
       <div class="form-group">
         <label>Prénom *</label>
-        <input type="text" [(ngModel)]="newEmpPrenom" placeholder="ex: Sara">
+        <input type="text" [(ngModel)]="employeeForm.prenom" placeholder="ex: Sara">
       </div>
       <div class="form-group">
         <label>Nom *</label>
-        <input type="text" [(ngModel)]="newEmpNom" placeholder="ex: Amrani">
+        <input type="text" [(ngModel)]="employeeForm.nom" placeholder="ex: Amrani">
       </div>
     </div>
-    <div class="form-group">
-      <label>Poste / Rôle</label>
-      <input type="text" [(ngModel)]="newEmpRole" placeholder="ex: Développeur Full Stack">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+      <div class="form-group">
+        <label>Email professionnel *</label>
+        <input type="email" [(ngModel)]="employeeForm.email" placeholder="prenom.nom@corp.tn">
+      </div>
+      <div class="form-group">
+        <label>Téléphone</label>
+        <input type="text" [(ngModel)]="employeeForm.telephone" placeholder="+216 00 000 000">
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+      <div class="form-group">
+        <label>Matricule *</label>
+        <input type="text" [(ngModel)]="employeeForm.matricule" placeholder="EMP-2026-001">
+      </div>
+      <div class="form-group">
+        <label>Poste</label>
+        <input type="text" [(ngModel)]="employeeForm.poste" placeholder="ex: Développeur Full Stack">
+      </div>
     </div>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
       <div class="form-group">
         <label>Département</label>
-        <select [(ngModel)]="newEmpDept">
+        <select name="employeeDepartement" [(ngModel)]="employeeForm.departement">
           <option>Ingénierie</option><option>Design</option>
           <option>IA</option><option>Marketing</option>
           <option>Finance</option><option>RH</option><option>Produit</option>
         </select>
       </div>
       <div class="form-group">
-        <label>Email professionnel</label>
-        <input type="email" [(ngModel)]="newEmpEmail" placeholder="prenom.nom@corp.tn">
+        <label>Type de contrat *</label>
+        <select name="employeeTypeContrat" [(ngModel)]="employeeForm.typeContrat">
+          <option>CDD</option>
+          <option>CDI</option>
+          <option>SIVP</option>
+        </select>
       </div>
     </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+      <div class="form-group">
+        <label>Date d'embauche *</label>
+        <input class="date-input" type="date" name="employeeDateEmbauche" [(ngModel)]="employeeForm.dateEmbauche">
+      </div>
+      <div class="form-group">
+        <label>Solde congé initial</label>
+        <input type="number" [(ngModel)]="employeeForm.soldeConge" min="0">
+      </div>
+    </div>
+    <div class="form-group" *ngIf="!editingEmployee">
+      <label>Mot de passe initial *</label>
+      <input type="password" [(ngModel)]="employeeForm.motdepasse" placeholder="Saisir un mot de passe temporaire">
+    </div>
     <div class="modal-actions">
-      <button class="btn-primary" (click)="createEmployee()"><i class="fas fa-user-plus"></i> Ajouter l'employé</button>
-      <button class="btn-secondary" (click)="closeModalEmp()">Annuler</button>
+      <button class="btn-primary" [disabled]="savingEmployee" (click)="createEmployee()">
+        <i class="fas" [class.fa-user-plus]="!editingEmployee" [class.fa-save]="!!editingEmployee"></i>
+        {{ editingEmployee ? 'Enregistrer les modifications' : 'Ajouter l\'employé' }}
+      </button>
+      <button class="btn-secondary" [disabled]="savingEmployee" (click)="closeModalEmp()">Annuler</button>
     </div>
   </div>
 </div>

@@ -47,4 +47,6 @@ export interface CreateEmploye {
 
   soldeConge: number;
 
+  motdepasse: string;
+
 }

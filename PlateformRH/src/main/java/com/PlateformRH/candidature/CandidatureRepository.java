@@ -10,5 +10,8 @@ import java.util.List;
 public interface CandidatureRepository extends JpaRepository<Candidature, Long> {
 
     List<Candidature> findByOffreId(Long offreId);
-    
+
+    long countByOffreId(Long offreId);
+
+    boolean existsByOffreIdAndEmployeId(Long offreId, Long employeId);
 }

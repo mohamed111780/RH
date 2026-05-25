@@ -58,6 +58,17 @@ export class EmployeService {
     );
   }
 
+  // DELETE
+  deleteEmploye(
+    id: number
+  ): Observable<string> {
+
+    return this.http.delete(
+      `${this.apiUrl}/${id}`,
+      { responseType: 'text' }
+    );
+  }
+
   // GET SOLDES BY EMPLOYE
   getSoldesByEmploye(
     id: number

@@ -1,6 +1,7 @@
 // Classe : OffreEmploiServiceImpl
 package com.PlateformRH.offreEmploi;
 
+import com.PlateformRH.candidature.CandidatureRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +16,7 @@ import java.util.stream.Collectors;
 public class OffreEmploiServiceImpl implements OffreEmploiService {
 
     private final OffreEmploiRepository offreRepository;
+    private final CandidatureRepository candidatureRepository;
 
     @Override
     public OffreEmploiDTO createOffre(OffreEmploiDTO dto) {
@@ -23,9 +25,6 @@ public class OffreEmploiServiceImpl implements OffreEmploiService {
 
         if (offre.getStatut() == null || offre.getStatut().isBlank()) {
             offre.setStatut("OUVERTE");
-        }
-        if (offre.getCandidatures() == null) {
-            offre.setCandidatures(0);
         }
         if (offre.getDatePublication() == null) {
             offre.setDatePublication(LocalDateTime.now());
@@ -71,7 +70,6 @@ public class OffreEmploiServiceImpl implements OffreEmploiService {
         o.setTitre(dto.getTitre());
         o.setDescription(dto.getDescription());
         o.setType(dto.getType());
-        o.setCandidatures(dto.getCandidatures() != null ? dto.getCandidatures() : o.getCandidatures());
         o.setDepartement(dto.getDepartement());
         o.setNiveau(dto.getNiveau());
         o.setContrat(dto.getContrat());
@@ -104,7 +102,7 @@ public class OffreEmploiServiceImpl implements OffreEmploiService {
         dto.setTitre(o.getTitre());
         dto.setDescription(o.getDescription());
         dto.setType(o.getType());
-        dto.setCandidatures(o.getCandidatures());
+        dto.setCandidatures(Math.toIntExact(candidatureRepository.countByOffreId(o.getId())));
         dto.setDepartement(o.getDepartement());
         dto.setNiveau(o.getNiveau());
         dto.setContrat(o.getContrat());
@@ -119,7 +117,6 @@ public class OffreEmploiServiceImpl implements OffreEmploiService {
         offre.setTitre(dto.getTitre());
         offre.setDescription(dto.getDescription());
         offre.setType(dto.getType());
-        offre.setCandidatures(dto.getCandidatures());
         offre.setDepartement(dto.getDepartement());
         offre.setNiveau(dto.getNiveau());
         offre.setContrat(dto.getContrat());

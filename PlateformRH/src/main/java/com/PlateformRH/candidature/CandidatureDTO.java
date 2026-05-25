@@ -12,6 +12,11 @@ public class CandidatureDTO {
 
     private String nomCandidat;
     private String email;
+    private Long employeId;
+    private String matriculeEmploye;
+    private String telephone;
+    private String poste;
+    private String departement;
 
     private String cv;
     private String lettreMotivation;

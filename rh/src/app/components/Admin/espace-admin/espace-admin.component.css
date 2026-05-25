@@ -1069,6 +1069,16 @@
   white-space: nowrap;
 }
 
+.formation-badge {
+  background: rgba(74,222,128,0.1);
+  border-color: rgba(74,222,128,0.18);
+  color: var(--accent3);
+}
+
+.formation-modal {
+  width: min(700px, calc(100vw - 32px));
+}
+
 .modal-section {
   background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015));
   border: 1px solid var(--border);

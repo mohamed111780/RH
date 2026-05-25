@@ -13,16 +13,8 @@
   <div class="nav-item" [class.active]="currentPage === 'dashboard'" (click)="showPage('dashboard')">
     <i class="fas fa-chart-pie"></i> Vue d'ensemble
   </div>
-  <div class="nav-item" [class.active]="currentPage === 'employes'" (click)="showPage('employes')">
-    <i class="fas fa-users"></i> Employés
-    <span class="nav-badge green">142</span>
-  </div>
 
   <div class="sidebar-section">Gestion RH</div>
-  <div class="nav-item" [class.active]="currentPage === 'conges'" (click)="showPage('conges')">
-    <i class="fas fa-umbrella-beach"></i> Congés & Absences
-    <span class="nav-badge amber">7</span>
-  </div>
   <div class="nav-item" [class.active]="currentPage === 'formations'" (click)="showPage('formations')">
     <i class="fas fa-graduation-cap"></i> Formations
   </div>
@@ -86,35 +78,30 @@
     <div class="page" *ngIf="currentPage === 'dashboard'">
       <div class="welcome-banner">
         <div>
-          <h1>Bonjour, Ahmed 👋</h1>
-          <p>Voici votre tableau de bord RH pour aujourd'hui. 3 nouvelles candidatures correspondent à 85%+</p>
+          <h1>Bonjour, {{ admin.prenom }} {{ admin.nom }}</h1>
+          <p>{{ dashboardSummary }}</p>
         </div>
         <div class="banner-date">
-          <strong>22</strong>
-          Mai 2026
+          <strong>{{ bannerDay }}</strong>
+          {{ bannerMonthYear }}
         </div>
       </div>
 
       <!-- Stats -->
       <div class="stats-grid">
-        <div class="stat-card purple" (click)="showPage('employes')">
-          <div class="stat-top"><div class="stat-icon purple"><i class="fas fa-users"></i></div><span class="stat-trend up">↑ +4%</span></div>
-          <div class="stat-value">142</div>
-          <div class="stat-label">Employés actifs</div>
-        </div>
-        <div class="stat-card amber" (click)="showPage('conges')">
-          <div class="stat-top"><div class="stat-icon amber"><i class="fas fa-calendar-check"></i></div><span class="stat-trend up">↑ +2</span></div>
-          <div class="stat-value">7</div>
-          <div class="stat-label">Congés en attente</div>
+        <div class="stat-card purple">
+          <div class="stat-top"><div class="stat-icon purple"><i class="fas fa-users"></i></div><span class="stat-trend up">Base RH</span></div>
+          <div class="stat-value">{{ totalEmployees }}</div>
+          <div class="stat-label">Employés enregistrés</div>
         </div>
         <div class="stat-card green" (click)="showPage('formations')">
-          <div class="stat-top"><div class="stat-icon green"><i class="fas fa-graduation-cap"></i></div><span class="stat-trend up">↑ 12</span></div>
-          <div class="stat-value">38</div>
+          <div class="stat-top"><div class="stat-icon green"><i class="fas fa-graduation-cap"></i></div><span class="stat-trend up">Backend</span></div>
+          <div class="stat-value">{{ activeFormationsCount }}</div>
           <div class="stat-label">Formations en cours</div>
         </div>
         <div class="stat-card cyan" (click)="showPage('offres')">
-          <div class="stat-top"><div class="stat-icon cyan"><i class="fas fa-file-alt"></i></div><span class="stat-trend up">↑ +8</span></div>
-          <div class="stat-value">53</div>
+          <div class="stat-top"><div class="stat-icon cyan"><i class="fas fa-file-alt"></i></div><span class="stat-trend up">{{ openOffresCount }} offre{{ openOffresCount > 1 ? 's' : '' }}</span></div>
+          <div class="stat-value">{{ totalCandidatures }}</div>
           <div class="stat-label">Candidatures totales</div>
         </div>
       </div>
@@ -166,17 +153,19 @@
         <div class="card">
           <div class="card-header">
             <div class="card-title"><i class="fas fa-user-plus"></i> Nouveaux employés</div>
-            <div class="card-action" (click)="showPage('employes')">Voir tous</div>
+          </div>
+          <div *ngIf="loadingEmployees" style="padding:18px 0;text-align:center;color:var(--text3);">
+            Chargement des employes...
           </div>
           <div class="emp-item" *ngFor="let e of employees.slice(0,4)">
             <div class="emp-avatar" [style.background]="e.color" [style.color]="e.textColor">{{ e.initials }}</div>
             <div class="emp-info"><strong>{{ e.name }}</strong><span>{{ e.role }} · {{ e.dept }}</span></div>
-            <span class="status-pill" [class]="e.status">
-              {{ e.status === 'active' ? 'Actif' : e.status === 'leave' ? 'Congé' : 'Remote' }}
-            </span>
+            <span class="status-pill active">{{ e.joinDate ? ('Depuis ' + (e.joinDate | date:'MM/yyyy')) : 'Actif' }}</span>
+          </div>
+          <div *ngIf="!loadingEmployees && !employees.length" style="font-size:12px;color:var(--text3);padding-top:8px;">
+            Aucun employe charge depuis le backend.
           </div>
         </div>
-
         <div class="card">
           <div class="card-header"><div class="card-title"><i class="fas fa-bell"></i> Activité récente</div></div>
           <div class="activity-item">
@@ -203,117 +192,18 @@
       </div>
     </div>
 
-    <!-- ══════════ EMPLOYÉS PAGE ══════════ -->
-    <div class="page" *ngIf="currentPage === 'employes'">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
-        <div class="section-title" style="margin-bottom:0;"><i class="fas fa-users" style="color:var(--accent2);"></i> Gestion des Employés</div>
-        <button class="btn-primary" (click)="showToast('Formulaire ajout employé ouvert')"><i class="fas fa-plus"></i> Ajouter employé</button>
-      </div>
-
-      <div class="stats-grid">
-        <div class="stat-card purple"><div class="stat-top"><div class="stat-icon purple"><i class="fas fa-users"></i></div></div><div class="stat-value">142</div><div class="stat-label">Total employés</div></div>
-        <div class="stat-card green"><div class="stat-top"><div class="stat-icon green"><i class="fas fa-check-circle"></i></div></div><div class="stat-value">128</div><div class="stat-label">Actifs</div></div>
-        <div class="stat-card amber"><div class="stat-top"><div class="stat-icon amber"><i class="fas fa-umbrella-beach"></i></div></div><div class="stat-value">9</div><div class="stat-label">En congé</div></div>
-        <div class="stat-card cyan"><div class="stat-top"><div class="stat-icon cyan"><i class="fas fa-laptop-house"></i></div></div><div class="stat-value">5</div><div class="stat-label">Remote</div></div>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title"><i class="fas fa-list"></i> Liste des employés</div>
-          <select [(ngModel)]="selectedDept" style="background:var(--card2);border:1px solid var(--border);color:var(--text2);padding:6px 12px;border-radius:8px;font-size:12px;outline:none;font-family:var(--font);cursor:pointer;">
-            <option value="all">Tous les départements</option>
-            <option value="Ingénierie">Ingénierie</option>
-            <option value="Design">Design</option>
-            <option value="Marketing">Marketing</option>
-            <option value="IA">IA</option>
-            <option value="Produit">Produit</option>
-          </select>
-        </div>
-        <div class="emp-full-item" *ngFor="let e of filteredEmployees">
-          <div class="emp-avatar" [style.background]="e.color" [style.color]="e.textColor" style="width:40px;height:40px;font-size:13px;">{{ e.initials }}</div>
-          <div class="emp-full-info"><strong>{{ e.name }}</strong><span>{{ e.role }}</span></div>
-          <span class="emp-dept-badge" [style.background]="deptBg(e.dept)" [style.color]="deptText(e.dept)">{{ e.dept }}</span>
-          <span class="status-pill" [class]="e.status">{{ e.status === 'active' ? 'Actif' : e.status === 'leave' ? 'Congé' : 'Remote' }}</span>
-          <div class="emp-actions">
-            <div class="action-btn" (click)="showToast('Profil de ' + e.name + ' ouvert')"><i class="fas fa-eye"></i></div>
-            <div class="action-btn" (click)="showToast('Modification de ' + e.name)"><i class="fas fa-edit"></i></div>
-            <div class="action-btn" (click)="showToast('Message envoyé à ' + e.name)"><i class="fas fa-envelope"></i></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══════════ CONGÉS PAGE ══════════ -->
-    <div class="page" *ngIf="currentPage === 'conges'">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
-        <div class="section-title" style="margin-bottom:0;"><i class="fas fa-umbrella-beach" style="color:var(--accent4);"></i> Congés & Absences</div>
-        <button class="btn-primary" (click)="showToast('Demande de congé ajoutée')"><i class="fas fa-plus"></i> Nouvelle demande</button>
-      </div>
-
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-header"><div class="card-title"><i class="fas fa-calendar"></i> Mai 2026</div></div>
-          <div class="leave-calendar">
-            <div class="cal-header" *ngFor="let d of weekHeaders">{{ d }}</div>
-            <div *ngFor="let cell of calendarDays" [class]="cell.cls">{{ cell.day }}</div>
-          </div>
-          <div style="display:flex;gap:14px;margin-top:8px;flex-wrap:wrap;">
-            <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);"><div style="width:10px;height:10px;border-radius:3px;background:var(--accent);"></div>Aujourd'hui</div>
-            <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);"><div style="width:10px;height:10px;border-radius:3px;background:rgba(245,158,11,0.3);"></div>Congé approuvé</div>
-            <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);"><div style="width:10px;height:10px;border-radius:3px;background:rgba(244,63,94,0.2);"></div>En attente</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title"><i class="fas fa-clock"></i> Demandes en attente</div>
-            <span class="nav-badge amber">7</span>
-          </div>
-          <div class="emp-item" *ngFor="let r of leaveRequests">
-            <div class="emp-avatar" [style.color]="r.color" style="background:rgba(255,255,255,0.07);width:36px;height:36px;font-size:12px;">{{ r.initials }}</div>
-            <div class="emp-info"><strong>{{ r.name }}</strong><span>{{ r.dates }} · {{ r.type }}</span></div>
-            <div style="display:flex;gap:6px;">
-              <div class="action-btn" style="color:var(--accent3);" (click)="showToast('Congé de ' + r.name + ' approuvé ✓')"><i class="fas fa-check"></i></div>
-              <div class="action-btn" style="color:var(--accent5);" (click)="showToast('Congé de ' + r.name + ' refusé')"><i class="fas fa-times"></i></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card" style="margin-top:20px;">
-        <div class="card-header"><div class="card-title"><i class="fas fa-chart-bar"></i> Solde congés par équipe</div></div>
-        <div class="grid-3" style="margin-bottom:0;">
-          <div>
-            <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">Ingénierie — 62 employés</div>
-            <div class="progress-bar"><div class="progress-fill" style="width:75%;background:var(--accent);"></div></div>
-            <div style="font-size:11px;color:var(--text3);margin-top:4px;">75% solde utilisé</div>
-          </div>
-          <div>
-            <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">Design — 25 employés</div>
-            <div class="progress-bar"><div class="progress-fill" style="width:48%;background:var(--accent6);"></div></div>
-            <div style="font-size:11px;color:var(--text3);margin-top:4px;">48% solde utilisé</div>
-          </div>
-          <div>
-            <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">Marketing — 17 employés</div>
-            <div class="progress-bar"><div class="progress-fill" style="width:90%;background:var(--accent5);"></div></div>
-            <div style="font-size:11px;color:var(--text3);margin-top:4px;">90% solde utilisé</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- ══════════ FORMATIONS PAGE ══════════ -->
     <div class="page" *ngIf="currentPage === 'formations'">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
         <div class="section-title" style="margin-bottom:0;"><i class="fas fa-graduation-cap" style="color:var(--accent3);"></i> Formations & Compétences</div>
-        <button class="btn-primary" (click)="showToast('Nouvelle formation créée')"><i class="fas fa-plus"></i> Créer formation</button>
+        <button class="btn-primary" (click)="openFormationModal()"><i class="fas fa-plus"></i> Créer formation</button>
       </div>
 
       <div class="stats-grid">
-        <div class="stat-card green"><div class="stat-top"><div class="stat-icon green"><i class="fas fa-play-circle"></i></div></div><div class="stat-value">38</div><div class="stat-label">En cours</div></div>
-        <div class="stat-card purple"><div class="stat-top"><div class="stat-icon purple"><i class="fas fa-check-double"></i></div></div><div class="stat-value">124</div><div class="stat-label">Complétées</div></div>
-        <div class="stat-card amber"><div class="stat-top"><div class="stat-icon amber"><i class="fas fa-users"></i></div></div><div class="stat-value">89</div><div class="stat-label">Employés inscrits</div></div>
-        <div class="stat-card cyan"><div class="stat-top"><div class="stat-icon cyan"><i class="fas fa-star"></i></div></div><div class="stat-value">4.7</div><div class="stat-label">Note moyenne</div></div>
+        <div class="stat-card green"><div class="stat-top"><div class="stat-icon green"><i class="fas fa-play-circle"></i></div></div><div class="stat-value">{{ activeFormationsCount }}</div><div class="stat-label">En cours</div></div>
+        <div class="stat-card purple"><div class="stat-top"><div class="stat-icon purple"><i class="fas fa-check-double"></i></div></div><div class="stat-value">{{ completedFormationsCount }}</div><div class="stat-label">Complétées</div></div>
+        <div class="stat-card amber"><div class="stat-top"><div class="stat-icon amber"><i class="fas fa-users"></i></div></div><div class="stat-value">{{ formationsEnrolledCount }}</div><div class="stat-label">Capacité totale</div></div>
+        <div class="stat-card cyan"><div class="stat-top"><div class="stat-icon cyan"><i class="fas fa-star"></i></div></div><div class="stat-value">{{ formationsAverageRating }}</div><div class="stat-label">Note moyenne</div></div>
       </div>
 
       <div class="tabs">
@@ -323,7 +213,15 @@
         <div class="tab" [class.active]="selectedFormationTab === 'lead'" (click)="selectedFormationTab = 'lead'">Leadership</div>
       </div>
 
-      <div class="formations-grid">
+      <div class="card" *ngIf="loadingFormations" style="padding:18px;text-align:center;color:var(--text3);margin-bottom:16px;">
+        Chargement des formations...
+      </div>
+
+      <div class="card" *ngIf="!loadingFormations && !filteredFormations.length" style="padding:18px;text-align:center;color:var(--text3);margin-bottom:16px;">
+        Aucune formation disponible pour ce filtre.
+      </div>
+
+      <div class="formations-grid" *ngIf="!loadingFormations && filteredFormations.length">
         <div class="formation-card" *ngFor="let f of filteredFormations" (click)="showToast('Formation: ' + f.title)">
           <span class="formation-tag" [class]="f.tag">{{ f.tagLabel }}</span>
           <h4>{{ f.title }}</h4>
@@ -404,7 +302,7 @@
       </ng-container>
 
       <!-- Kanban view -->
-      <ng-container *ngIf="showKanbanView && kanbanData">
+      <ng-container *ngIf="showKanbanView">
         <div class="back-btn" (click)="showKanbanView = false">
           <i class="fas fa-arrow-left"></i> Retour aux offres
         </div>
@@ -423,9 +321,13 @@
           </div>
         </div>
 
-        <div class="kanban-board">
+        <div class="card" *ngIf="loadingKanban" style="padding:18px;text-align:center;color:var(--text3);margin-bottom:16px;">
+          Chargement des candidatures...
+        </div>
+
+        <div class="kanban-board" *ngIf="kanbanData && !loadingKanban">
           <!-- À Trier -->
-          <div class="kanban-col">
+          <div class="kanban-col" (dragover)="allowDrop($event)" (drop)="onDrop($event, 'EN_ATTENTE')">
             <div class="kanban-col-header">
               <div class="kanban-col-title">
                 <div class="col-dot amber"></div>
@@ -434,7 +336,7 @@
               </div>
               <span class="col-count amber">{{ kanbanData.trier.length }}</span>
             </div>
-            <div class="candidature-card" *ngFor="let c of kanbanData.trier">
+            <div class="candidature-card" *ngFor="let c of kanbanData.trier" draggable="true" (dragstart)="onDragStart(c)" (dragend)="onDragEnd()">
               <div class="cand-header">
                 <div class="cand-avatar" [style.background]="c.color" [style.color]="c.tc">{{ c.initials }}</div>
                 <div class="cand-info"><strong>{{ c.name }}</strong><span>{{ c.role }}</span></div>
@@ -457,12 +359,12 @@
                   <i class="fas fa-times"></i>
                 </button>
               </div>
-              <div class="cand-date"><i class="fas fa-clock" style="margin-right:4px;"></i>Candidature reçue il y a {{ c.daysAgo }}j</div>
+              <div class="cand-date"><i class="fas fa-envelope" style="margin-right:4px;"></i>{{ c.email }}</div>
             </div>
           </div>
 
           <!-- Entretien -->
-          <div class="kanban-col">
+          <div class="kanban-col" (dragover)="allowDrop($event)" (drop)="onDrop($event, 'ACCEPTEE')">
             <div class="kanban-col-header">
               <div class="kanban-col-title">
                 <div class="col-dot purple"></div>
@@ -471,7 +373,7 @@
               </div>
               <span class="col-count purple">{{ kanbanData.entretien.length }}</span>
             </div>
-            <div class="candidature-card" *ngFor="let c of kanbanData.entretien">
+            <div class="candidature-card" *ngFor="let c of kanbanData.entretien" draggable="true" (dragstart)="onDragStart(c)" (dragend)="onDragEnd()">
               <div class="cand-header">
                 <div class="cand-avatar" [style.background]="c.color" [style.color]="c.tc">{{ c.initials }}</div>
                 <div class="cand-info"><strong>{{ c.name }}</strong><span>{{ c.role }}</span></div>
@@ -491,12 +393,12 @@
                   <i class="fas fa-paper-plane"></i> Envoyer offre
                 </button>
               </div>
-              <div class="cand-date"><i class="fas fa-clock" style="margin-right:4px;"></i>Candidature reçue il y a {{ c.daysAgo }}j</div>
+              <div class="cand-date"><i class="fas fa-envelope" style="margin-right:4px;"></i>{{ c.email }}</div>
             </div>
           </div>
 
           <!-- Rejetée -->
-          <div class="kanban-col">
+          <div class="kanban-col" (dragover)="allowDrop($event)" (drop)="onDrop($event, 'REFUSEE')">
             <div class="kanban-col-header">
               <div class="kanban-col-title">
                 <div class="col-dot red"></div>
@@ -505,7 +407,7 @@
               </div>
               <span class="col-count red">{{ kanbanData.rejetee.length }}</span>
             </div>
-            <div class="candidature-card" *ngFor="let c of kanbanData.rejetee">
+            <div class="candidature-card" *ngFor="let c of kanbanData.rejetee" draggable="true" (dragstart)="onDragStart(c)" (dragend)="onDragEnd()">
               <div class="cand-header">
                 <div class="cand-avatar" [style.background]="c.color" [style.color]="c.tc">{{ c.initials }}</div>
                 <div class="cand-info"><strong>{{ c.name }}</strong><span>{{ c.role }}</span></div>
@@ -520,7 +422,7 @@
               <div class="cand-tags">
                 <span class="cand-tag" *ngFor="let t of c.tags" [class]="tagClass(t, kanbanData.offreTags)">{{ t }}</span>
               </div>
-              <div class="cand-date"><i class="fas fa-clock" style="margin-right:4px;"></i>Candidature reçue il y a {{ c.daysAgo }}j</div>
+              <div class="cand-date"><i class="fas fa-envelope" style="margin-right:4px;"></i>{{ c.email }}</div>
             </div>
           </div>
         </div>
@@ -684,6 +586,66 @@
 
   </div><!-- /content -->
 </main><!-- /main -->
+
+<!-- ══════════ MODAL FORMATION ══════════ -->
+<div class="modal-overlay open" *ngIf="showFormationModal" (click)="closeFormationModal()">
+  <div class="modal formation-modal" (click)="$event.stopPropagation()">
+    <div class="modal-head">
+      <div>
+        <h2>Nouvelle formation</h2>
+        <p>Renseignez les informations principales de la formation avant sa publication.</p>
+      </div>
+      <div class="modal-badge formation-badge">
+        <i class="fas fa-graduation-cap"></i>
+        <span>Formation</span>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-title">Informations generales</div>
+
+      <div class="form-group">
+        <label>Titre</label>
+        <input type="text" [(ngModel)]="newFormation.titre" placeholder="ex: Kubernetes avance pour equipes DevOps">
+      </div>
+
+      <div class="form-group">
+        <label>Description</label>
+        <textarea [(ngModel)]="newFormation.description" placeholder="Objectifs, programme, public cible..."></textarea>
+      </div>
+
+      <div class="modal-grid">
+        <div class="form-group">
+          <label>Type de formation</label>
+          <select [(ngModel)]="newFormation.typeFormation">
+            <option value="EN_LIGNE">En ligne</option>
+            <option value="PRESENTIEL">Presentiel</option>
+            <option value="HYBRIDE">Hybride</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Capacite</label>
+          <input type="number" min="1" [(ngModel)]="newFormation.capacite" placeholder="Nombre de places">
+        </div>
+        <div class="form-group">
+          <label>Date debut</label>
+          <input type="date" [(ngModel)]="newFormation.dateDebut">
+        </div>
+        <div class="form-group">
+          <label>Date fin</label>
+          <input type="date" [(ngModel)]="newFormation.dateFin">
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" (click)="closeFormationModal()">Annuler</button>
+      <button class="btn-primary" (click)="createFormation()" [disabled]="savingFormation">
+        <i class="fas fa-save"></i> {{ savingFormation ? 'Creation...' : 'Enregistrer' }}
+      </button>
+    </div>
+  </div>
+</div>
 
 <!-- ══════════ MODAL NOUVELLE OFFRE ══════════ -->
 <div class="modal-overlay open" *ngIf="showModal" (click)="editingOffre ? closeEditModal() : closeModal()">

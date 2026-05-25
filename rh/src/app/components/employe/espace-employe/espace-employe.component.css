@@ -705,6 +705,26 @@
   font-size: 14px;
 }
 
+.banner-copy {
+  max-width: 720px;
+}
+
+.banner-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--accent6);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+}
+
 .banner-meta {
   display: flex;
   gap: 20px;
@@ -770,6 +790,64 @@
   border-radius: 50%;
   margin-top: 5px;
   flex-shrink: 0;
+}
+
+.dashboard-list-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.dashboard-list-row:last-child {
+  border-bottom: none;
+}
+
+.dashboard-list-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 15px;
+}
+
+.dashboard-list-icon.cyan {
+  background: rgba(34,211,238,0.12);
+  color: var(--accent6);
+}
+
+.dashboard-list-icon.purple {
+  background: rgba(108,99,255,0.15);
+  color: var(--accent2);
+}
+
+.dashboard-list-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-list-title {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+
+.dashboard-list-subtitle {
+  display: block;
+  font-size: 11px;
+  color: var(--text3);
+}
+
+.dashboard-list-meta {
+  font-size: 11px;
+  color: var(--text3);
+  white-space: nowrap;
 }
 
 /* ── CONGE ROWS ──────────────────────────────────────────────────────────────── */

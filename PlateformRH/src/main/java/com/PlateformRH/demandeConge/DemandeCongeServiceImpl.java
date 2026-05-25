@@ -3,7 +3,9 @@ package com.PlateformRH.demandeConge;
 import com.PlateformRH.Employe.EmployeRepository;
 import com.PlateformRH.Employe.employe;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -17,10 +19,19 @@ public class DemandeCongeServiceImpl implements DemandeCongeService {
     private final EmployeRepository employeRepository;
     @Override
     public void DemandeConge(DemandeConge demandeConge, Long employeId) {
+        if (demandeConge.getDateDebut() == null || demandeConge.getDateFin() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Les dates de debut et de fin sont obligatoires");
+        }
+        if (demandeConge.getType() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le type de conge est obligatoire");
+        }
+        if (demandeConge.getDateFin().isBefore(demandeConge.getDateDebut())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La date de fin doit etre apres la date de debut");
+        }
 
         //  Vérifier employé
         employe emp = employeRepository.findById(employeId)
-                .orElseThrow(() -> new RuntimeException("Employé non trouvé"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employe non trouve"));
 
         //  Calculer nombre de jours demandés
         long nbJours = ChronoUnit.DAYS.between(
@@ -30,7 +41,7 @@ public class DemandeCongeServiceImpl implements DemandeCongeService {
 
         // Vérifier solde
         if (nbJours > emp.getSoldeConge()) {
-            throw new RuntimeException("Solde de congé insuffisant !");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Solde de conge insuffisant");
         }
 
         // ⃣ Initialiser statut
@@ -71,20 +82,27 @@ public class DemandeCongeServiceImpl implements DemandeCongeService {
     @Override
     public DemandeCongeDTO getDemandeById(Long id) {
         DemandeConge demande = demandeCongeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Demande de congé non trouvée"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Demande de conge non trouvee"));
         return mapToDto(demande);
     }
     @Override
     public void deleteDemande(Long id) {
         if (!demandeCongeRepository.existsById(id)) {
-            throw new RuntimeException("Demande de congé non trouvée");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Demande de conge non trouvee");
         }
         demandeCongeRepository.deleteById(id);
     }
     @Override
     public DemandeCongeDTO updateDemande(Long id, DemandeCongeDTO dto) {
         DemandeConge demande = demandeCongeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Demande de congé non trouvée"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Demande de conge non trouvee"));
+
+        if (dto.getDebut() == null || dto.getFin() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Les dates de debut et de fin sont obligatoires");
+        }
+        if (dto.getFin().isBefore(dto.getDebut())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La date de fin doit etre apres la date de debut");
+        }
 
         // Mise à jour des champs
         demande.setDateDebut(dto.getDebut());
@@ -127,7 +145,7 @@ public class DemandeCongeServiceImpl implements DemandeCongeService {
                     .toList();
 
         } catch (IllegalArgumentException e) {
-            throw new RuntimeException("Statut invalide");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Statut invalide");
         }
     }
     @Override
@@ -135,13 +153,17 @@ public class DemandeCongeServiceImpl implements DemandeCongeService {
 
         // récupérer la demande
         DemandeConge demande = demandeCongeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Demande non trouvée"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Demande non trouvee"));
 
         // convertir String → Enum (sans try/catch)
-        StatutDemande newStatut = StatutDemande.valueOf(statut.toUpperCase());
+        try {
+            StatutDemande newStatut = StatutDemande.valueOf(statut.toUpperCase());
 
-        // changer le statut
-        demande.setStatut(newStatut);
+            // changer le statut
+            demande.setStatut(newStatut);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Statut invalide");
+        }
 
         // sauvegarder
         return mapToDto(demandeCongeRepository.save(demande));
@@ -157,6 +179,5 @@ public class DemandeCongeServiceImpl implements DemandeCongeService {
 
     }
 }
-
 
 

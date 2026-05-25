@@ -1,7 +1,9 @@
 ﻿import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { forkJoin } from 'rxjs';
 import { AuthService } from '../../../services/auth/auth.service';
 import { EmployeService } from '../../../services/employe.service';
 import { Employe } from '../../../models/employe';
@@ -9,23 +11,24 @@ import { FormationService } from '../../../services/formation.service';
 import { DemandeFormationService } from '../../../services/demande-formation.service';
 import { Formation as FormationApi } from '../../../models/formation';
 import { DemandeFormation as DemandeFormationApi } from '../../../models/demande-formation';
+import { OffreEmploiService } from '../../../services/offre-emploi.service';
+import { OffreEmploi } from '../../../models/offre-emploi';
+import { CandidatureService } from '../../../services/candidature.service';
+import { Candidature as BackendCandidature } from '../../../models/candidature';
+import {
+  DemandeConge,
+  CreateDemandeConge,
+  StatutDemande,
+  TypeConge,
+  TYPE_LABELS
+} from '../../../models/demande-conge';
+import { DemandeCongeService } from '../../../services/demande-conge.service';
 
-export type CongeStatus = 'approved' | 'pending' | 'rejected';
 export type FormationStatus = 'enrolled' | 'completed' | 'pending' | 'available';
-
-export interface DemandeConge {
-  id: string;
-  type: string;
-  dateDebut: string;
-  dateFin: string;
-  nbJours: number;
-  status: CongeStatus;
-  commentaire?: string;
-  dateCreation: string;
-}
+export type CongeForm = CreateDemandeConge & { commentaire?: string };
 
 export interface OffreInterne {
-  id: string;
+  id: number;
   title: string;
   dept: string;
   type: 'tech' | 'design' | 'data' | 'mgmt';
@@ -85,6 +88,8 @@ export class EspaceEmployeComponent implements OnInit {
   loadingProfile = false;
   savingProfile = false;
   savingPassword = false;
+  loadingOffresInternes = false;
+  postingCandidature = false;
 
   // â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   currentPage  = 'dashboard';
@@ -102,6 +107,9 @@ export class EspaceEmployeComponent implements OnInit {
   toastMessage  = '';
   toastVisible  = false;
   private toastTimer: any;
+  showSuccessModal = false;
+  successModalMessage = '';
+  private successModalTimer: any;
   showCongeModal    = false;
   showOffreModal: OffreInterne | null = null;
   showFormationModal: Formation | null = null;
@@ -115,20 +123,20 @@ export class EspaceEmployeComponent implements OnInit {
   loadingFormations = false;
   submittingFormationRequest = false;
   updatingFormationRequest = false;
+
+  editingConge: DemandeConge | null = null;
+  congeForm: CongeForm = { dateDebut: '', dateFin: '', type: 'PAYE' };
+  demandesConge: DemandeConge[] = [];
+  loadingDemandesConge = false;
+  submittingConge = false;
   cancelingFormationRequest = false;
   formationRequestSuccess = '';
   formationRequestError = '';
   editFormationRequestError = '';
   activeFormationTab = 'catalogue';
+  congeTypeOptions: TypeConge[] = Object.keys(TYPE_LABELS) as TypeConge[];
 
   // â”€â”€ CongÃ© form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  congeForm = {
-    type:        'CongÃ© annuel',
-    dateDebut:   '',
-    dateFin:     '',
-    commentaire: '',
-  };
-
   // â”€â”€ ParamÃ¨tres form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   paramForm = {
     nom:       'Benali',
@@ -141,46 +149,8 @@ export class EspaceEmployeComponent implements OnInit {
   };
 
   // â”€â”€ DATA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  demandesConge: DemandeConge[] = [
-    { id: 'C1', type: 'CongÃ© annuel',     dateDebut: '2026-06-02', dateFin: '2026-06-06', nbJours: 5, status: 'approved', dateCreation: '2026-05-10' },
-    { id: 'C2', type: 'CongÃ© annuel',     dateDebut: '2026-07-14', dateFin: '2026-07-18', nbJours: 5, status: 'pending',  dateCreation: '2026-05-20', commentaire: 'Vacances d\'Ã©tÃ©' },
-    { id: 'C3', type: 'Absence mÃ©dicale', dateDebut: '2026-03-03', dateFin: '2026-03-04', nbJours: 2, status: 'approved', dateCreation: '2026-03-01' },
-    { id: 'C4', type: 'CongÃ© exceptionnel',dateDebut:'2025-12-24', dateFin: '2025-12-26', nbJours: 3, status: 'approved', dateCreation: '2025-12-10' },
-    { id: 'C5', type: 'CongÃ© annuel',     dateDebut: '2025-10-15', dateFin: '2025-10-17', nbJours: 3, status: 'rejected', dateCreation: '2025-10-01', commentaire: 'Charge projet insuffisante' },
-  ];
 
-  offresInternes: OffreInterne[] = [
-    {
-      id: 'OI-1', type: 'tech', title: 'Lead Developer React.js', dept: 'IngÃ©nierie',
-      niveau: 'senior', niveauLabel: 'Senior', datePub: 'Il y a 3 jours', postule: false,
-      tags: ['React', 'TypeScript', 'Node.js', 'Docker', 'AWS'],
-      description: 'Rejoignez l\'Ã©quipe Core pour piloter le dÃ©veloppement de notre plateforme principale. Vous serez en charge de l\'architecture front-end et du mentoring des dÃ©veloppeurs junior.'
-    },
-    {
-      id: 'OI-2', type: 'mgmt', title: 'Tech Lead Backend', dept: 'IngÃ©nierie',
-      niveau: 'senior', niveauLabel: 'Senior', datePub: 'Il y a 1 semaine', postule: true,
-      tags: ['Node.js', 'PostgreSQL', 'Kubernetes', 'Microservices'],
-      description: 'OpportunitÃ© de piloter l\'Ã©quipe backend de 6 personnes. Vous interviendrez sur l\'architecture, le code review et la roadmap technique du produit.'
-    },
-    {
-      id: 'OI-3', type: 'design', title: 'UX/UI Designer Senior', dept: 'Design',
-      niveau: 'senior', niveauLabel: 'Senior', datePub: 'Il y a 5 jours', postule: false,
-      tags: ['Figma', 'UX Research', 'Design System', 'Prototyping'],
-      description: 'CrÃ©ez des expÃ©riences utilisateurs mÃ©morables pour nos produits B2B. Collaboration Ã©troite avec les Ã©quipes produit et ingÃ©nierie.'
-    },
-    {
-      id: 'OI-4', type: 'data', title: 'Data Engineer', dept: 'Data & IA',
-      niveau: 'mid', niveauLabel: 'Mid-level', datePub: 'Il y a 2 semaines', postule: false,
-      tags: ['Python', 'Spark', 'Airflow', 'SQL', 'Kafka'],
-      description: 'Construisez et maintenez nos pipelines de donnÃ©es en temps rÃ©el. Vous travaillerez sur l\'infrastructure data qui alimente nos algorithmes IA.'
-    },
-    {
-      id: 'OI-5', type: 'mgmt', title: 'Product Manager', dept: 'Produit',
-      niveau: 'mid', niveauLabel: 'Mid-level', datePub: 'Il y a 3 jours', postule: false,
-      tags: ['Roadmap', 'Agile', 'OKRs', 'Stakeholders'],
-      description: 'DÃ©finissez la vision produit et pilotez la roadmap en collaboration avec toutes les parties prenantes. Poste stratÃ©gique avec fort impact business.'
-    },
-  ];
+  offresInternes: OffreInterne[] = [];
 
   formations: Formation[] = [];
 
@@ -190,6 +160,9 @@ export class EspaceEmployeComponent implements OnInit {
     private employeService: EmployeService,
     private formationService: FormationService,
     private demandeFormationService: DemandeFormationService,
+    private demandeCongeService: DemandeCongeService,
+    private offreEmploiService: OffreEmploiService,
+    private candidatureService: CandidatureService,
     private router: Router
   ) {}
 
@@ -202,8 +175,14 @@ export class EspaceEmployeComponent implements OnInit {
     this.currentPage = page;
     this.pageTitle   = this.pageTitles[page] || page;
 
+    if (page === 'offres' && this.employe.id) {
+      this.loadOffresInternes();
+    }
     if (page === 'formations' && this.employe.id) {
       this.loadFormationsData();
+    }
+    if (page === 'conges' && this.employe.id) {
+      this.loadDemandesConge();
     }
   }
 
@@ -235,8 +214,16 @@ export class EspaceEmployeComponent implements OnInit {
     return this.formations.filter(f => f.status === 'available');
   }
 
+  get dashboardOffresInternes(): OffreInterne[] {
+    return this.offresInternes.slice(0, 3);
+  }
+
+  get dashboardFormations(): Formation[] {
+    return this.formations.slice(0, 2);
+  }
+
   get pendingConges(): number {
-    return this.demandesConge.filter(c => c.status === 'pending').length;
+    return this.demandesConge.filter(c => c.statutDemande === 'EN_ATTENTE').length;
   }
 
   loadFormationsData(): void {
@@ -273,42 +260,201 @@ export class EspaceEmployeComponent implements OnInit {
 
   // â”€â”€ CongÃ©s â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   openCongeModal(): void {
-    this.congeForm = { type: 'CongÃ© annuel', dateDebut: '', dateFin: '', commentaire: '' };
+    this.editingConge = null;
+    this.congeForm = { type: 'PAYE', dateDebut: '', dateFin: '' };
     this.showCongeModal = true;
+  }
+
+  openEditCongeModal(conge: DemandeConge): void {
+    if (conge.statutDemande !== 'EN_ATTENTE') {
+      this.showToast('Seules les demandes en attente peuvent etre modifiees');
+      return;
+    }
+    this.editingConge = conge;
+    this.congeForm = {
+      type: conge.typeConge,
+      dateDebut: this.toDateInputValue(conge.debut),
+      dateFin: this.toDateInputValue(conge.fin)
+    };
+    this.showCongeModal = true;
+  }
+
+  closeCongeModal(): void {
+    this.showCongeModal = false;
+    this.editingConge = null;
   }
 
   submitConge(): void {
     if (!this.congeForm.dateDebut || !this.congeForm.dateFin) {
-      this.showToast('âš ï¸ Veuillez renseigner les dates'); return;
+      this.showToast('âš ï¸ Veuillez renseigner les dates');
+      return;
     }
-    const d1 = new Date(this.congeForm.dateDebut);
-    const d2 = new Date(this.congeForm.dateFin);
-    const nb = Math.max(1, Math.round((d2.getTime() - d1.getTime()) / 86400000) + 1);
-    const newDemande: DemandeConge = {
-      id:           'C' + Date.now(),
-      type:         this.congeForm.type,
-      dateDebut:    this.congeForm.dateDebut,
-      dateFin:      this.congeForm.dateFin,
-      nbJours:      nb,
-      status:       'pending',
-      commentaire:  this.congeForm.commentaire,
-      dateCreation: new Date().toISOString().slice(0, 10),
-    };
-    this.demandesConge.unshift(newDemande);
-    this.showCongeModal = false;
-    this.showToast('âœ… Demande de congÃ© soumise avec succÃ¨s');
+    if (!this.employe.id) {
+      this.showToast('Profil employe introuvable');
+      return;
+    }
+    if (this.editingConge) {
+      this.updateConge();
+      return;
+    }
+    this.createDemandeConge();
   }
 
-  cancelDemande(id: string): void {
-    this.demandesConge = this.demandesConge.filter(c => c.id !== id);
-    this.showToast('Demande annulÃ©e');
+  private createDemandeConge(): void {
+    this.submittingConge = true;
+    const payload: CreateDemandeConge = {
+      type: this.congeForm.type,
+      dateDebut: this.congeForm.dateDebut,
+      dateFin: this.congeForm.dateFin
+    };
+    this.demandeCongeService.createDemande(this.employe.id!, payload).subscribe({
+      next: () => {
+        this.submittingConge = false;
+        this.closeCongeModal();
+        this.loadDemandesConge();
+        this.showToast('âœ… Demande de congÃ© soumise avec succÃ¨s');
+      },
+      error: (error: HttpErrorResponse) => {
+        this.submittingConge = false;
+        this.showToast(this.getCongeErrorMessage(error, 'Erreur lors de la creation de la demande de conge'));
+      }
+    });
+  }
+
+  private updateConge(): void {
+    if (!this.editingConge?.id) {
+      this.showToast('Impossible de modifier cette demande');
+      return;
+    }
+    this.submittingConge = true;
+    const updated: DemandeConge = {
+      ...this.editingConge,
+      debut: this.congeForm.dateDebut,
+      fin: this.congeForm.dateFin,
+      typeConge: this.congeForm.type,
+      statutDemande: this.editingConge.statutDemande,
+      matriculeEmploye: this.editingConge.matriculeEmploye,
+      nomEmploye: this.editingConge.nomEmploye,
+      prenomEmploye: this.editingConge.prenomEmploye,
+    };
+    this.demandeCongeService.updateDemande(this.editingConge.id, updated).subscribe({
+      next: () => {
+        this.submittingConge = false;
+        this.closeCongeModal();
+        this.loadDemandesConge();
+        this.showToast('Demande de congÃ© mise a jour');
+      },
+      error: (error: HttpErrorResponse) => {
+        this.submittingConge = false;
+        this.showToast(this.getCongeErrorMessage(error, 'Erreur lors de la mise a jour de la demande'));
+      }
+    });
+  }
+
+  private getCongeErrorMessage(error: HttpErrorResponse, fallback: string): string {
+    if (typeof error.error === 'string' && error.error.trim()) {
+      return error.error;
+    }
+
+    const serverMessage = error.error?.message || error.error?.error;
+    if (typeof serverMessage === 'string' && serverMessage.trim()) {
+      return serverMessage;
+    }
+
+    return fallback;
+  }
+
+  cancelDemande(id: number): void {
+    this.demandeCongeService.deleteDemande(id).subscribe({
+      next: () => {
+        this.loadDemandesConge();
+        this.showToast('Demande annulee');
+      },
+      error: () => {
+        this.showToast('Erreur lors de l annulation de la demande');
+      }
+    });
+  }
+
+  private loadDemandesConge(): void {
+    if (!this.employe.id) {
+      return;
+    }
+
+    this.loadingDemandesConge = true;
+    this.demandeCongeService.getDemandesByEmployeeId(this.employe.id).subscribe({
+      next: (demandes) => {
+        this.demandesConge = demandes;
+        this.loadingDemandesConge = false;
+      },
+      error: () => {
+        this.loadingDemandesConge = false;
+        this.showToast('Impossible de charger vos demandes de congÃ©');
+      }
+    });
   }
 
   // ── Offres ──────────────────────────────────────────────────────────────────────────────────────────
+  openOffreModal(event: MouseEvent, offre: OffreInterne): void {
+    event.stopPropagation();
+    console.log('openOffreModal', offre);
+    this.showOffreModal = offre;
+  }
+
   postuler(offre: OffreInterne): void {
-    offre.postule = true;
-    this.showOffreModal = null;
-    this.showToast(`🚀 Candidature envoyée pour "${offre.title}" !`);
+    console.log('postuler start', offre);
+    if (!this.employe.id) {
+      console.log('postuler failed: employe introuvable');
+      this.showToast('Profil employe introuvable');
+      return;
+    }
+    if (offre.postule) {
+      console.log('postuler skipped: deja postule', offre.id);
+      this.showToast('Vous avez deja postule a cette offre');
+      return;
+    }
+
+    const candidaturePayload: BackendCandidature = {
+      nomCandidat: `${this.employe.prenom} ${this.employe.nom}`.trim(),
+      email: this.employe.email,
+      employeId: this.employe.id,
+      matriculeEmploye: this.employe.matricule,
+      telephone: this.employe.telephone,
+      poste: this.employe.poste,
+      departement: this.employe.dept,
+      offreId: offre.id,
+      titreOffre: offre.title
+    };
+
+    console.log('postuler payload', candidaturePayload);
+    this.postingCandidature = true;
+    this.candidatureService.postuler(offre.id, candidaturePayload).subscribe({
+      next: () => {
+        console.log('postuler success', offre.id);
+        this.postingCandidature = false;
+        this.showOffreModal = null;
+        this.loadOffresInternes();
+        this.openSuccessModal(`Votre candidature pour "${offre.title}" a bien été envoyée !`);
+      },
+      error: (err) => {
+        console.error('postuler error', err);
+        this.postingCandidature = false;
+        this.showToast(String(err?.error?.message || err?.error || 'Erreur lors de l\'envoi de la candidature'));
+      }
+    });
+  }
+
+  openSuccessModal(message: string): void {
+    this.successModalMessage = message;
+    this.showSuccessModal = true;
+    clearTimeout(this.successModalTimer);
+    this.successModalTimer = setTimeout(() => this.closeSuccessModal(), 3600);
+  }
+
+  closeSuccessModal(): void {
+    this.showSuccessModal = false;
+    this.successModalMessage = '';
+    clearTimeout(this.successModalTimer);
   }
 
   // â”€â”€ Formations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -526,7 +672,9 @@ export class EspaceEmployeComponent implements OnInit {
     this.employeService.getEmployeById(user.id).subscribe({
       next: (employe) => {
         this.applyEmployeFromApi(employe);
+        this.loadOffresInternes();
         this.loadFormationsData();
+        this.loadDemandesConge();
         this.loadingProfile = false;
       },
       error: () => {
@@ -619,8 +767,47 @@ export class EspaceEmployeComponent implements OnInit {
   }
 
   // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  statusLabel(s: CongeStatus): string {
-    return { approved: 'ApprouvÃ©', pending: 'En attente', rejected: 'RefusÃ©' }[s];
+  statusLabel(s: StatutDemande): string {
+    const labels: Record<StatutDemande, string> = {
+      EN_ATTENTE: 'En attente',
+      APPROUVE: 'ApprouvÃ©',
+      REFUSEE: 'RefusÃ©',
+      ANNULE: 'AnnulÃ©'
+    };
+    return labels[s] || s;
+  }
+
+  typeLabel(type: TypeConge): string {
+    return TYPE_LABELS[type] || type;
+  }
+
+  formationStatusLabel(status: FormationStatus): string {
+    const labels: Record<FormationStatus, string> = {
+      available: 'Disponible',
+      pending: 'En attente',
+      enrolled: 'En cours',
+      completed: 'Terminee'
+    };
+    return labels[status] || status;
+  }
+
+  congeStatusClass(status: StatutDemande): string {
+    const mapping: Record<StatutDemande, string> = {
+      EN_ATTENTE: 'pending',
+      APPROUVE: 'approved',
+      REFUSEE: 'rejected',
+      ANNULE: 'rejected'
+    };
+    return mapping[status] || status.toLowerCase();
+  }
+
+  congeDays(conge: DemandeConge): number {
+    if (!conge.debut || !conge.fin) {
+      return 0;
+    }
+    const start = new Date(conge.debut);
+    const end = new Date(conge.fin);
+    return Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
   }
 
   formatDate(d: string): string {
@@ -678,6 +865,79 @@ export class EspaceEmployeComponent implements OnInit {
     return value.includes('T') ? value.slice(0, 10) : value;
   }
 
+  private loadOffresInternes(): void {
+    if (!this.employe.id) return;
+
+    this.loadingOffresInternes = true;
+    forkJoin({
+      offres: this.offreEmploiService.getAllOffres(),
+      candidatures: this.candidatureService.getAll()
+    }).subscribe({
+      next: ({ offres, candidatures }) => {
+        const candidaturesEmploye = new Set(
+          candidatures
+            .filter((candidature) => candidature.employeId === this.employe.id)
+            .map((candidature) => candidature.offreId)
+            .filter((offreId): offreId is number => offreId != null)
+        );
+
+        this.offresInternes = offres
+          .filter((offre) => offre.type === 'INTERNE')
+          .map((offre) => this.mapOffreInterneFromApi(offre, candidaturesEmploye.has(offre.id ?? -1)));
+        this.loadingOffresInternes = false;
+      },
+      error: () => {
+        this.loadingOffresInternes = false;
+        this.showToast('Impossible de charger les offres internes');
+      }
+    });
+  }
+
+  private mapOffreInterneFromApi(offre: OffreEmploi, postule: boolean): OffreInterne {
+    return {
+      id: offre.id ?? 0,
+      title: offre.titre,
+      dept: offre.departement || 'General',
+      type: this.offreInterneType(offre.departement),
+      niveau: this.offreInterneNiveau(offre.niveau),
+      niveauLabel: offre.niveau || 'Non precise',
+      tags: offre.skills || [],
+      datePub: this.formatRelativeDate(offre.datePublication),
+      description: offre.description || 'Aucune description disponible.',
+      postule
+    };
+  }
+
+  private offreInterneType(departement?: string): 'tech' | 'design' | 'data' | 'mgmt' {
+    const normalized = (departement || '').toLowerCase();
+    if (normalized.includes('design')) return 'design';
+    if (normalized.includes('data') || normalized.includes('ia')) return 'data';
+    if (normalized.includes('produit') || normalized.includes('marketing') || normalized.includes('finance')) return 'mgmt';
+    return 'tech';
+  }
+
+  private offreInterneNiveau(niveau?: string): 'junior' | 'mid' | 'senior' {
+    const normalized = (niveau || '').toLowerCase();
+    if (normalized.includes('junior')) return 'junior';
+    if (normalized.includes('mid')) return 'mid';
+    return 'senior';
+  }
+
+  private formatRelativeDate(datePublication?: string): string {
+    if (!datePublication) return 'A l instant';
+
+    const now = new Date();
+    const published = new Date(datePublication);
+    const diffMs = now.getTime() - published.getTime();
+    const diffHours = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60)));
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffHours < 1) return "A l'instant";
+    if (diffHours < 24) return `Il y a ${diffHours}h`;
+    if (diffDays < 7) return `Il y a ${diffDays}j`;
+    return this.formatDate(datePublication);
+  }
+
   private mapFormationFromApi(f: FormationApi): Formation {
     const type = f.typeFormation || 'EN_LIGNE';
     const tag = this.formationTag(type);
@@ -731,4 +991,3 @@ export class EspaceEmployeComponent implements OnInit {
     return `${days}j`;
   }
 }
-

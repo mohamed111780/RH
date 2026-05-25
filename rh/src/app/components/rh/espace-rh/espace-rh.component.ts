@@ -1,9 +1,24 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import { forkJoin } from 'rxjs';
+import { DemandeConge, StatutDemande, TYPE_LABELS } from '../../../models/demande-conge';
+import { CreateEmploye, Employe } from '../../../models/employe';
+import { Formation as FormationApi } from '../../../models/formation';
+import { OffreEmploi, OffreStatut, OffreType } from '../../../models/offre-emploi';
+import { Candidature as BackendCandidature } from '../../../models/candidature';
+import { AuthService } from '../../../services/auth/auth.service';
+import { DemandeCongeService } from '../../../services/demande-conge.service';
+import { EmployeService } from '../../../services/employe.service';
+import { FormationService } from '../../../services/formation.service';
+import { OffreEmploiService } from '../../../services/offre-emploi.service';
+import { CandidatureService } from '../../../services/candidature.service';
 
 export interface Employee {
   id: number;
+  matricule: string;
   name: string;
   initials: string;
   role: string;
@@ -15,22 +30,28 @@ export interface Employee {
   joinDate: string;
   phone: string;
   email: string;
+  contractType: string;
+  leaveBalance: number;
 }
 
-export interface LeaveRequest {
-  id: number;
-  name: string;
-  initials: string;
-  dates: string;
-  type: string;
-  color: string;
-  status: 'pending' | 'approved' | 'rejected';
-  days: number;
+interface EmployeeForm {
+  id?: number;
+  nom: string;
+  prenom: string;
+  email: string;
+  telephone: string;
+  matricule: string;
+  poste: string;
+  departement: string;
+  dateEmbauche: string;
+  typeContrat: string;
+  soldeConge: number;
+  motdepasse: string;
 }
 
 export interface JobOffer {
-  id: string;
-  type: 'tech' | 'design' | 'data' | 'rh';
+  id: number;
+  type: 'tech' | 'design' | 'data';
   title: string;
   dept: string;
   niveau: 'junior' | 'mid' | 'senior';
@@ -38,16 +59,23 @@ export interface JobOffer {
   date: string;
   candidatures: number;
   tags: string[];
+  description: string;
+  contrat: string;
+  offreType: OffreType;
+  statut: OffreStatut;
 }
 
 export interface Candidature {
+  id: number;
   name: string;
   initials: string;
   role: string;
   color: string;
   tc: string;
+  email: string;
   tags: string[];
   score: number;
+  statut: 'EN_ATTENTE' | 'ACCEPTEE' | 'REFUSEE';
 }
 
 export interface KanbanData {
@@ -91,6 +119,15 @@ export interface AiInsight {
   styleUrls: ['./espace-rh.component.css']
 })
 export class EspaceRhComponent implements OnInit {
+  constructor(
+    private authService: AuthService,
+    private employeService: EmployeService,
+    private demandeCongeService: DemandeCongeService,
+    private formationService: FormationService,
+    private offreEmploiService: OffreEmploiService,
+    private candidatureService: CandidatureService,
+    private router: Router
+  ) {}
 
   // ───────────────────────── STATE ─────────────────────────
   activePage: string = 'dashboard';
@@ -105,30 +142,41 @@ export class EspaceRhComponent implements OnInit {
   newOffreDept: string = 'Ingénierie';
   newOffreNiveau: string = 'Mid-level';
   newOffreDesc: string = '';
+  newOffreContrat: string = 'CDI';
+  newOffreType: OffreType = 'EXTERNE';
   newOffreTags: string[] = [];
   tagInputValue: string = '';
+  editingOffre: JobOffer | null = null;
 
   // Modal employé
   modalEmpOpen: boolean = false;
-  newEmpNom: string = '';
-  newEmpPrenom: string = '';
-  newEmpRole: string = '';
-  newEmpDept: string = 'Ingénierie';
-  newEmpEmail: string = '';
+  editingEmployee: Employee | null = null;
+  loadingEmployees: boolean = false;
+  savingEmployee: boolean = false;
+  deletingEmployeeId: number | null = null;
+  employeeForm: EmployeeForm = this.getEmptyEmployeeForm();
 
   // Modal congé
   modalCongeOpen: boolean = false;
+  loadingLeaveRequests: boolean = false;
+  updatingLeaveRequestId: number | null = null;
 
   // Kanban
   kanbanView: boolean = false;
   kanbanOffre: JobOffer | null = null;
   currentOffres: JobOffer[] = [];
+  kanbanData: KanbanData | null = null;
+  private draggedCandidature: Candidature | null = null;
 
   // Filtre employés
   filterDept: string = 'Tous';
 
   // Onglet formations
-  formationTab: string = 'Toutes';
+  selectedFormationTab: 'all' | 'tech' | 'soft' | 'lead' = 'all';
+  loadingFormations: boolean = false;
+  loadingOffres: boolean = false;
+  savingOffre: boolean = false;
+  loadingKanban: boolean = false;
 
   // Calendrier mois/année
   calMonth: number = 4; // Mai = index 4
@@ -136,72 +184,11 @@ export class EspaceRhComponent implements OnInit {
 
   // ───────────────────────── FAKE DATA ─────────────────────────
 
-  readonly employees: Employee[] = [
-    { id: 1, name: 'Sara Amrani', initials: 'SA', role: 'Dev Full Stack', dept: 'Ingénierie', status: 'active', color: 'rgba(20,184,166,0.2)', textColor: 'var(--teal)', absences: 1, joinDate: '01/03/2024', phone: '+216 22 111 222', email: 'sara.amrani@corp.tn' },
-    { id: 2, name: 'Yassine Belkadi', initials: 'YB', role: 'Data Scientist', dept: 'IA', status: 'active', color: 'rgba(168,85,247,0.2)', textColor: 'var(--purple)', absences: 0, joinDate: '15/01/2024', phone: '+216 22 333 444', email: 'y.belkadi@corp.tn' },
-    { id: 3, name: 'Nadia Maaloul', initials: 'NM', role: 'UX Designer', dept: 'Design', status: 'remote', color: 'rgba(236,72,153,0.2)', textColor: 'var(--pink)', absences: 2, joinDate: '10/06/2023', phone: '+216 55 555 666', email: 'n.maaloul@corp.tn' },
-    { id: 4, name: 'Karim Hamdi', initials: 'KH', role: 'Product Manager', dept: 'Produit', status: 'leave', color: 'rgba(245,158,11,0.2)', textColor: 'var(--amber)', absences: 5, joinDate: '20/09/2022', phone: '+216 98 777 888', email: 'k.hamdi@corp.tn' },
-    { id: 5, name: 'Amine Oueslati', initials: 'AO', role: 'DevOps Engineer', dept: 'Ingénierie', status: 'active', color: 'rgba(20,184,166,0.15)', textColor: 'var(--teal)', absences: 3, joinDate: '05/04/2023', phone: '+216 99 121 314', email: 'a.oueslati@corp.tn' },
-    { id: 6, name: 'Rania Farhat', initials: 'RF', role: 'Tech Lead', dept: 'Ingénierie', status: 'active', color: 'rgba(20,184,166,0.15)', textColor: 'var(--teal)', absences: 0, joinDate: '11/11/2021', phone: '+216 25 151 617', email: 'r.farhat@corp.tn' },
-    { id: 7, name: 'Mehdi Gharbi', initials: 'MG', role: 'Frontend Dev', dept: 'Ingénierie', status: 'active', color: 'rgba(20,184,166,0.15)', textColor: 'var(--teal)', absences: 1, joinDate: '03/07/2023', phone: '+216 20 181 920', email: 'm.gharbi@corp.tn' },
-    { id: 8, name: 'Ines Slimani', initials: 'IS', role: 'Backend Dev', dept: 'Ingénierie', status: 'active', color: 'rgba(20,184,166,0.15)', textColor: 'var(--teal)', absences: 2, joinDate: '18/02/2024', phone: '+216 94 212 223', email: 'i.slimani@corp.tn' },
-    { id: 9, name: 'Omar Khalil', initials: 'OK', role: 'ML Engineer', dept: 'IA', status: 'remote', color: 'rgba(168,85,247,0.15)', textColor: 'var(--purple)', absences: 0, joinDate: '28/08/2022', phone: '+216 97 242 526', email: 'o.khalil@corp.tn' },
-    { id: 10, name: 'Cyrine Bouzid', initials: 'CB', role: 'Marketing Manager', dept: 'Marketing', status: 'absent', color: 'rgba(236,72,153,0.15)', textColor: 'var(--pink)', absences: 7, joinDate: '14/05/2022', phone: '+216 26 272 829', email: 'c.bouzid@corp.tn' },
-    { id: 11, name: 'Tarek Salah', initials: 'TS', role: 'Analyste Financier', dept: 'Finance', status: 'active', color: 'rgba(255,255,255,0.08)', textColor: 'var(--text2)', absences: 1, joinDate: '07/01/2023', phone: '+216 52 303 132', email: 't.salah@corp.tn' },
-    { id: 12, name: 'Khalil Ben Ali', initials: 'KB', role: 'Architecte Logiciel', dept: 'Ingénierie', status: 'active', color: 'rgba(20,184,166,0.15)', textColor: 'var(--teal)', absences: 0, joinDate: '22/03/2021', phone: '+216 29 333 435', email: 'kb@corp.tn' },
-  ];
+  employees: Employee[] = [];
 
-  readonly leaveRequests: LeaveRequest[] = [
-    { id: 1, name: 'Karim Hamdi', initials: 'KH', dates: '24–28 Mai', type: 'Congé annuel', color: 'var(--amber)', status: 'pending', days: 5 },
-    { id: 2, name: 'Sara Amrani', initials: 'SA', dates: '2–6 Juin', type: 'Congé maternité', color: 'var(--teal)', status: 'pending', days: 5 },
-    { id: 3, name: 'Amine Oueslati', initials: 'AO', dates: '10 Juin', type: 'Absence médicale', color: 'var(--pink)', status: 'pending', days: 1 },
-    { id: 4, name: 'Nadia Maaloul', initials: 'NM', dates: '15–16 Juin', type: 'Congé personnel', color: 'var(--pink)', status: 'pending', days: 2 },
-    { id: 5, name: 'Mehdi Gharbi', initials: 'MG', dates: '20–24 Juin', type: 'Congé annuel', color: 'var(--teal)', status: 'approved', days: 5 },
-    { id: 6, name: 'Omar Khalil', initials: 'OK', dates: '3 Juillet', type: 'Absence médicale', color: 'var(--purple)', status: 'rejected', days: 1 },
-  ];
+  leaveRequests: DemandeConge[] = [];
 
-  leaveRequestsState: { [id: number]: 'pending' | 'approved' | 'rejected' } = {};
-
-  readonly formations: Formation[] = [
-    { tag: 'tech', tagLabel: 'Tech', title: 'React.js Avancé & Hooks', desc: 'Maîtriser les patterns avancés, hooks personnalisés et l\'optimisation des performances.', duration: '12h', enrolled: 24, rating: '4.8', progress: 72 },
-    { tag: 'tech', tagLabel: 'Tech', title: 'Docker & Kubernetes', desc: 'Conteneurisation, orchestration et déploiement cloud-native en production.', duration: '16h', enrolled: 18, rating: '4.9', progress: 55 },
-    { tag: 'soft', tagLabel: 'Soft Skills', title: 'Communication Efficace', desc: 'Techniques de présentation, feedback constructif et collaboration cross-équipe.', duration: '6h', enrolled: 41, rating: '4.6', progress: 88 },
-    { tag: 'lead', tagLabel: 'Leadership', title: 'Management de Projet Agile', desc: 'Scrum, Kanban, OKRs et pilotage d\'équipes distribuées en environnement incertain.', duration: '10h', enrolled: 15, rating: '4.7', progress: 40 },
-    { tag: 'tech', tagLabel: 'Tech', title: 'Python Data Science', desc: 'Pandas, NumPy, visualisation de données et introduction au machine learning.', duration: '20h', enrolled: 29, rating: '4.9', progress: 61 },
-    { tag: 'soft', tagLabel: 'Soft Skills', title: 'Gestion du Stress & Bien-être', desc: 'Techniques de mindfulness, gestion des priorités et prévention du burn-out.', duration: '8h', enrolled: 31, rating: '4.5', progress: 93 },
-    { tag: 'lead', tagLabel: 'Leadership', title: 'Recrutement & Onboarding', desc: 'Stratégies d\'attraction des talents, conduite d\'entretiens et processus d\'intégration.', duration: '7h', enrolled: 12, rating: '4.7', progress: 30 },
-    { tag: 'tech', tagLabel: 'Tech', title: 'AWS Solutions Architect', desc: 'Infrastructure cloud, haute disponibilité, sécurité et optimisation des coûts AWS.', duration: '24h', enrolled: 11, rating: '4.8', progress: 22 },
-    { tag: 'soft', tagLabel: 'Soft Skills', title: 'Intelligence Émotionnelle', desc: 'Développer l\'empathie, la gestion des conflits et le leadership collaboratif.', duration: '5h', enrolled: 38, rating: '4.4', progress: 79 },
-  ];
-
-  readonly offresBase: JobOffer[] = [
-    { id: 'offre-1', type: 'tech', title: 'Lead Developer React.js', dept: 'Ingénierie', niveau: 'senior', niveauLabel: 'Senior', date: '3 jours', candidatures: 12, tags: ['React', 'TypeScript', 'Node.js', 'Docker', 'AWS'] },
-    { id: 'offre-2', type: 'data', title: 'Data Engineer', dept: 'Data & IA', niveau: 'mid', niveauLabel: 'Mid-level', date: '5 jours', candidatures: 9, tags: ['Python', 'Spark', 'Airflow', 'SQL', 'Kafka'] },
-    { id: 'offre-3', type: 'design', title: 'UX/UI Designer Senior', dept: 'Design', niveau: 'senior', niveauLabel: 'Senior', date: '1 semaine', candidatures: 17, tags: ['Figma', 'UX Research', 'Prototyping', 'Design System'] },
-    { id: 'offre-4', type: 'tech', title: 'DevOps Engineer', dept: 'Ingénierie', niveau: 'senior', niveauLabel: 'Senior', date: '2 jours', candidatures: 8, tags: ['Kubernetes', 'Docker', 'CI/CD', 'Terraform', 'AWS'] },
-    { id: 'offre-5', type: 'data', title: 'Machine Learning Engineer', dept: 'IA', niveau: 'senior', niveauLabel: 'Senior', date: '1 semaine', candidatures: 7, tags: ['Python', 'TensorFlow', 'MLflow', 'Docker', 'NLP'] },
-    { id: 'offre-6', type: 'rh', title: 'Chargé(e) RH & Paie', dept: 'RH', niveau: 'mid', niveauLabel: 'Mid-level', date: '4 jours', candidatures: 5, tags: ['SIRH', 'Paie', 'Recrutement', 'Excel', 'Droit social'] },
-  ];
-
-  readonly candidaturesData: { [key: string]: KanbanData } = {
-    'offre-1': {
-      offreTags: ['React', 'TypeScript', 'Node.js', 'Docker', 'AWS'],
-      trier: [
-        { name: 'Mehdi Gharbi', initials: 'MG', role: '5 ans exp · Frontend', color: 'rgba(20,184,166,0.2)', tc: 'var(--teal)', tags: ['React', 'TypeScript', 'Node.js', 'Docker', 'Redux'], score: 92 },
-        { name: 'Ines Slimani', initials: 'IS', role: '4 ans exp · Full Stack', color: 'rgba(168,85,247,0.2)', tc: 'var(--purple)', tags: ['React', 'Node.js', 'MongoDB', 'Docker', 'GraphQL'], score: 78 },
-        { name: 'Omar Khalil', initials: 'OK', role: '3 ans exp · Backend', color: 'rgba(236,72,153,0.2)', tc: 'var(--pink)', tags: ['Node.js', 'Express', 'PostgreSQL', 'Redis'], score: 51 },
-        { name: 'Rania Farhat', initials: 'RF', role: '6 ans exp · Tech Lead', color: 'rgba(245,158,11,0.2)', tc: 'var(--amber)', tags: ['React', 'TypeScript', 'AWS', 'Kubernetes', 'Docker'], score: 95 },
-      ],
-      entretien: [
-        { name: 'Khalil Ben Ali', initials: 'KB', role: '7 ans exp · Arch.', color: 'rgba(20,184,166,0.15)', tc: 'var(--teal)', tags: ['React', 'TypeScript', 'Node.js', 'Docker', 'AWS', 'Redux'], score: 97 },
-        { name: 'Sonia Mzabi', initials: 'SM', role: '5 ans exp · Lead Dev', color: 'rgba(168,85,247,0.15)', tc: 'var(--purple)', tags: ['React', 'TypeScript', 'AWS', 'CI/CD'], score: 88 },
-      ],
-      rejetee: [
-        { name: 'Tarek Salah', initials: 'TS', role: '1 an exp · Junior', color: 'rgba(255,255,255,0.06)', tc: 'var(--text3)', tags: ['HTML', 'CSS', 'JavaScript', 'Vue.js'], score: 22 },
-        { name: 'Cyrine Bouzid', initials: 'CB', role: '2 ans exp · Dev Web', color: 'rgba(255,255,255,0.06)', tc: 'var(--text3)', tags: ['PHP', 'WordPress', 'jQuery'], score: 15 },
-      ]
-    }
-  };
+  formations: Formation[] = [];
 
   readonly activityFeed: ActivityItem[] = [
     { color: 'var(--teal)', message: '🤖 IA a trié 8 candidatures pour <strong>Lead Dev React</strong>', time: 'Il y a 2h' },
@@ -255,7 +242,7 @@ export class EspaceRhComponent implements OnInit {
   get onLeaveEmployees(): number { return this.employees.filter(e => e.status === 'leave').length; }
   get remoteEmployees(): number { return this.employees.filter(e => e.status === 'remote').length; }
   get absentEmployees(): number { return this.employees.filter(e => e.status === 'absent').length; }
-  get pendingLeaves(): number { return this.leaveRequests.filter(l => (this.leaveRequestsState[l.id] ?? l.status) === 'pending').length; }
+  get pendingLeaves(): number { return this.leaveRequests.filter(l => l.statutDemande === 'EN_ATTENTE').length; }
   get totalCandidatures(): number { return this.currentOffres.reduce((a, o) => a + o.candidatures, 0); }
 
   get filteredEmployees(): Employee[] {
@@ -264,15 +251,29 @@ export class EspaceRhComponent implements OnInit {
   }
 
   get filteredFormations(): Formation[] {
-    if (this.formationTab === 'Toutes') return this.formations;
-    const map: { [k: string]: string } = { 'Tech': 'tech', 'Soft Skills': 'soft', 'Leadership': 'lead' };
-    return this.formations.filter(f => f.tag === map[this.formationTab]);
+    if (this.selectedFormationTab === 'all') return this.formations;
+    return this.formations.filter(f => f.tag === this.selectedFormationTab);
   }
 
-  get currentKanbanData(): KanbanData | null {
-    if (!this.kanbanOffre) return null;
-    return this.candidaturesData[this.kanbanOffre.id] || this.candidaturesData['offre-1'];
+  get activeFormationsCount(): number {
+    return this.formations.filter(f => f.progress > 0 && f.progress < 100).length;
   }
+
+  get completedFormationsCount(): number {
+    return this.formations.filter(f => f.progress >= 100).length;
+  }
+
+  get formationsEnrolledCount(): number {
+    return this.formations.reduce((total, formation) => total + formation.enrolled, 0);
+  }
+
+  get formationsAverageRating(): string {
+    if (!this.formations.length) return '0.0';
+    const total = this.formations.reduce((sum, formation) => sum + Number(formation.rating || 0), 0);
+    return (total / this.formations.length).toFixed(1);
+  }
+
+  get currentKanbanData(): KanbanData | null { return this.kanbanData; }
 
   get calendarDays(): { day: number | null; cls: string }[] {
     const days: { day: number | null; cls: string }[] = [];
@@ -295,10 +296,6 @@ export class EspaceRhComponent implements OnInit {
 
   get deptOptions(): string[] {
     return ['Tous', ...Array.from(new Set(this.employees.map(e => e.dept)))];
-  }
-
-  getLeaveStatus(req: LeaveRequest): 'pending' | 'approved' | 'rejected' {
-    return this.leaveRequestsState[req.id] ?? req.status;
   }
 
   getKanbanCol(key: string): Candidature[] {
@@ -330,7 +327,7 @@ export class EspaceRhComponent implements OnInit {
     const map: { [k: string]: { cls: string; label: string } } = {
       active: { cls: 'active', label: 'Actif' },
       leave: { cls: 'leave', label: 'Congé' },
-      remote: { cls: 'remote', label: 'Remote' },
+      remote: { cls: 'active', label: 'Actif' },
       absent: { cls: 'absent', label: 'Absent' },
     };
     return map[status] || { cls: '', label: status };
@@ -362,7 +359,16 @@ export class EspaceRhComponent implements OnInit {
       analytics: 'Analytique IA',
     };
     this.pageTitle = titles[pageId] || pageId;
-    if (pageId === 'offres') this.kanbanView = false;
+    if (pageId === 'offres') {
+      this.kanbanView = false;
+      this.loadOffres();
+    }
+    if (pageId === 'conges') this.loadLeaveRequests();
+  }
+
+  logoutRh(): void {
+    this.authService.clearSession();
+    this.router.navigate(['/home']);
   }
 
   // ───────────────────────── TOAST ─────────────────────────
@@ -379,24 +385,42 @@ export class EspaceRhComponent implements OnInit {
   showKanban(offre: JobOffer): void {
     this.kanbanOffre = offre;
     this.kanbanView = true;
+    this.loadingKanban = true;
+    this.candidatureService.getByOffre(offre.id).subscribe({
+      next: (candidatures) => {
+        this.kanbanData = this.buildKanbanData(offre, candidatures);
+        this.loadingKanban = false;
+      },
+      error: () => {
+        this.loadingKanban = false;
+        this.showToast('Erreur lors du chargement des candidatures');
+      }
+    });
   }
 
   backToOffres(): void {
     this.kanbanView = false;
     this.kanbanOffre = null;
+    this.kanbanData = null;
   }
 
   openModalOffre(): void {
+    this.editingOffre = null;
     this.newOffreTitre = '';
     this.newOffreDept = 'Ingénierie';
     this.newOffreNiveau = 'Mid-level';
     this.newOffreDesc = '';
+    this.newOffreContrat = 'CDI';
+    this.newOffreType = 'EXTERNE';
     this.newOffreTags = [];
     this.tagInputValue = '';
     this.modalOffreOpen = true;
   }
 
-  closeModalOffre(): void { this.modalOffreOpen = false; }
+  closeModalOffre(): void {
+    this.modalOffreOpen = false;
+    this.editingOffre = null;
+  }
 
   addTag(event: KeyboardEvent): void {
     if (event.key === 'Enter' || event.key === ',') {
@@ -410,61 +434,713 @@ export class EspaceRhComponent implements OnInit {
   removeTag(tag: string): void { this.newOffreTags = this.newOffreTags.filter(t => t !== tag); }
 
   createOffre(): void {
-    if (!this.newOffreTitre.trim()) { this.showToast('⚠️ Veuillez saisir un titre'); return; }
-    const niveauMap: { [k: string]: 'junior' | 'mid' | 'senior' } = { 'Junior': 'junior', 'Mid-level': 'mid', 'Senior': 'senior', 'Lead': 'senior', 'Manager': 'senior' };
-    const newOffre: JobOffer = {
-      id: 'offre-' + Date.now(),
-      type: 'tech',
-      title: this.newOffreTitre,
-      dept: this.newOffreDept,
-      niveau: niveauMap[this.newOffreNiveau] || 'mid',
-      niveauLabel: this.newOffreNiveau,
-      date: 'maintenant',
-      candidatures: 0,
-      tags: [...this.newOffreTags],
-    };
-    this.currentOffres = [newOffre, ...this.currentOffres];
-    this.closeModalOffre();
-    this.showToast('🚀 Offre "' + this.newOffreTitre + '" publiée avec succès !');
+    if (!this.newOffreTitre.trim() || !this.newOffreDesc.trim()) {
+      this.showToast('Veuillez renseigner le titre et la description');
+      return;
+    }
+    if (!this.newOffreTags.length) {
+      this.showToast('Veuillez ajouter au moins une skill');
+      return;
+    }
+
+    this.savingOffre = true;
+    this.offreEmploiService.createOffre(this.buildOffrePayload()).subscribe({
+      next: (created) => {
+        this.savingOffre = false;
+        this.closeModalOffre();
+        this.loadOffres();
+        this.showToast(`Offre "${created.titre}" publiee avec succes`);
+      },
+      error: () => {
+        this.savingOffre = false;
+        this.showToast("Erreur lors de l'ajout de l'offre");
+      }
+    });
+  }
+
+  openEditModal(offre: JobOffer): void {
+    this.editingOffre = offre;
+    this.newOffreTitre = offre.title;
+    this.newOffreDesc = offre.description;
+    this.newOffreDept = offre.dept;
+    this.newOffreNiveau = offre.niveauLabel;
+    this.newOffreContrat = offre.contrat;
+    this.newOffreType = offre.offreType;
+    this.newOffreTags = [...offre.tags];
+    this.tagInputValue = '';
+    this.modalOffreOpen = true;
+  }
+
+  saveEditOffre(): void {
+    if (!this.editingOffre) return;
+    if (!this.newOffreTitre.trim() || !this.newOffreDesc.trim()) {
+      this.showToast('Veuillez renseigner le titre et la description');
+      return;
+    }
+    if (!this.newOffreTags.length) {
+      this.showToast('Veuillez ajouter au moins une skill');
+      return;
+    }
+
+    this.savingOffre = true;
+    this.offreEmploiService.updateOffre(this.editingOffre.id, this.buildOffrePayload(this.editingOffre.statut)).subscribe({
+      next: () => {
+        this.savingOffre = false;
+        this.closeModalOffre();
+        this.loadOffres();
+        this.showToast('Offre mise a jour');
+      },
+      error: () => {
+        this.savingOffre = false;
+        this.showToast("Erreur lors de la mise a jour de l'offre");
+      }
+    });
+  }
+
+  cloturerOffre(offre: JobOffer): void {
+    this.offreEmploiService.cloturerOffre(offre.id).subscribe({
+      next: () => {
+        this.loadOffres();
+        if (this.kanbanView) {
+          this.backToOffres();
+        }
+        this.showToast('Offre cloturee avec succes');
+      },
+      error: () => {
+        this.showToast("Erreur lors de la cloture de l'offre");
+      }
+    });
+  }
+
+  onDragStart(candidature: Candidature): void {
+    this.draggedCandidature = candidature;
+  }
+
+  onDragEnd(): void {
+    this.draggedCandidature = null;
+  }
+
+  allowDrop(event: DragEvent): void {
+    event.preventDefault();
+  }
+
+  onDrop(event: DragEvent, targetStatus: 'EN_ATTENTE' | 'ACCEPTEE' | 'REFUSEE'): void {
+    event.preventDefault();
+
+    if (!this.draggedCandidature || this.draggedCandidature.statut === targetStatus) {
+      this.draggedCandidature = null;
+      return;
+    }
+
+    this.candidatureService.changeStatut(this.draggedCandidature.id, targetStatus).subscribe({
+      next: () => {
+        const currentOffre = this.currentOffres.find((offre) => offre.id === this.kanbanOffre?.id);
+        if (currentOffre) {
+          this.showKanban(currentOffre);
+        }
+        this.draggedCandidature = null;
+        this.showToast('Statut candidature mis a jour');
+      },
+      error: () => {
+        this.draggedCandidature = null;
+        this.showToast('Erreur lors de la mise a jour du statut');
+      }
+    });
   }
 
   // ───────────────────────── EMPLOYEES ─────────────────────────
 
   openModalEmp(): void {
-    this.newEmpNom = '';
-    this.newEmpPrenom = '';
-    this.newEmpRole = '';
-    this.newEmpDept = 'Ingénierie';
-    this.newEmpEmail = '';
+    this.editingEmployee = null;
+    this.employeeForm = this.getEmptyEmployeeForm();
     this.modalEmpOpen = true;
   }
 
-  closeModalEmp(): void { this.modalEmpOpen = false; }
+  openEditEmployee(employee: Employee): void {
+    this.editingEmployee = employee;
+    this.employeeForm = {
+      id: employee.id,
+      nom: this.extractNom(employee.name),
+      prenom: this.extractPrenom(employee.name),
+      email: employee.email,
+      telephone: employee.phone,
+      matricule: employee.matricule,
+      poste: employee.role,
+      departement: employee.dept,
+      dateEmbauche: employee.joinDate,
+      typeContrat: employee.contractType || 'CDI',
+      soldeConge: employee.leaveBalance,
+      motdepasse: ''
+    };
+    this.modalEmpOpen = true;
+  }
+
+  closeModalEmp(): void {
+    this.modalEmpOpen = false;
+    this.editingEmployee = null;
+    this.savingEmployee = false;
+  }
 
   createEmployee(): void {
-    if (!this.newEmpNom.trim() || !this.newEmpPrenom.trim()) { this.showToast('⚠️ Prénom et nom requis'); return; }
-    this.closeModalEmp();
-    this.showToast(`✅ ${this.newEmpPrenom} ${this.newEmpNom} ajouté(e) avec succès`);
+    if (!this.employeeForm.nom.trim() || !this.employeeForm.prenom.trim()) {
+      this.showToast('Prenom et nom requis');
+      return;
+    }
+    if (!this.employeeForm.email.trim() || !this.employeeForm.matricule.trim()) {
+      this.showToast('Email et matricule requis');
+      return;
+    }
+    if (!this.employeeForm.dateEmbauche) {
+      this.showToast('Date d embauche requise');
+      return;
+    }
+    if (!this.employeeForm.typeContrat) {
+      this.showToast('Type de contrat requis');
+      return;
+    }
+
+    if (this.editingEmployee?.id) {
+      this.updateEmployee();
+      return;
+    }
+
+    if (!this.employeeForm.motdepasse.trim()) {
+      this.showToast('Mot de passe initial requis');
+      return;
+    }
+
+    this.savingEmployee = true;
+    const payload: CreateEmploye = {
+      nom: this.employeeForm.nom.trim(),
+      prenom: this.employeeForm.prenom.trim(),
+      email: this.employeeForm.email.trim(),
+      telephone: this.employeeForm.telephone.trim(),
+      matricule: this.employeeForm.matricule.trim(),
+      poste: this.employeeForm.poste.trim(),
+      departement: this.employeeForm.departement,
+      dateEmbauche: this.employeeForm.dateEmbauche,
+      typeContrat: this.employeeForm.typeContrat,
+      soldeConge: Number(this.employeeForm.soldeConge),
+      motdepasse: this.employeeForm.motdepasse
+    };
+
+    this.employeService.addEmploye(payload).subscribe({
+      next: () => {
+        this.savingEmployee = false;
+        this.closeModalEmp();
+        this.loadEmployees();
+        this.showToast(`Employe ${payload.prenom} ${payload.nom} ajoute avec succes`);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.savingEmployee = false;
+        this.showToast(this.getEmployeeErrorMessage(error, 'Erreur lors de la creation de l employe'));
+      }
+    });
+  }
+
+  deleteEmployee(employee: Employee): void {
+    if (!employee.id) {
+      return;
+    }
+
+    this.deletingEmployeeId = employee.id;
+    this.employeService.deleteEmploye(employee.id).subscribe({
+      next: () => {
+        this.deletingEmployeeId = null;
+        this.loadEmployees();
+        this.showToast(`Employe ${employee.name} supprime avec succes`);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.deletingEmployeeId = null;
+        this.showToast(this.getEmployeeErrorMessage(error, 'Erreur lors de la suppression de l employe'));
+      }
+    });
   }
 
   // ───────────────────────── CONGÉS ─────────────────────────
 
-  approveLeave(req: LeaveRequest): void {
-    this.leaveRequestsState[req.id] = 'approved';
-    this.showToast(`✅ Congé de ${req.name} approuvé`);
+  approveLeave(req: DemandeConge): void {
+    this.updateLeaveStatus(req, 'APPROUVE', `Demande de ${this.leaveEmployeeName(req)} approuvee`);
   }
 
-  rejectLeave(req: LeaveRequest): void {
-    this.leaveRequestsState[req.id] = 'rejected';
-    this.showToast(`✗ Congé de ${req.name} refusé`);
+  rejectLeave(req: DemandeConge): void {
+    this.updateLeaveStatus(req, 'REFUSEE', `Demande de ${this.leaveEmployeeName(req)} refusee`);
+  }
+
+  cancelLeave(req: DemandeConge): void {
+    this.updateLeaveStatus(req, 'ANNULE', `Demande de ${this.leaveEmployeeName(req)} annulee`);
   }
 
   // ───────────────────────── LIFECYCLE ─────────────────────────
 
   ngOnInit(): void {
-    this.currentOffres = [...this.offresBase];
+    this.loadEmployees();
+    this.loadLeaveRequests();
+    this.loadFormations();
+    this.loadOffres();
   }
 
   trackByIndex(index: number): number { return index; }
   trackById(index: number, item: any): any { return item.id ?? index; }
+
+  private updateEmployee(): void {
+    if (!this.editingEmployee?.id) {
+      return;
+    }
+
+    this.savingEmployee = true;
+    const payload: Employe = {
+      id: this.editingEmployee.id,
+      nom: this.employeeForm.nom.trim(),
+      prenom: this.employeeForm.prenom.trim(),
+      email: this.employeeForm.email.trim(),
+      telephone: this.employeeForm.telephone.trim(),
+      matricule: this.employeeForm.matricule.trim(),
+      poste: this.employeeForm.poste.trim(),
+      departement: this.employeeForm.departement,
+      dateEmbauche: this.employeeForm.dateEmbauche,
+      typeContrat: this.employeeForm.typeContrat,
+      soldeConge: Number(this.employeeForm.soldeConge)
+    };
+
+    this.employeService.updateEmploye(this.editingEmployee.id, payload).subscribe({
+      next: () => {
+        this.savingEmployee = false;
+        this.closeModalEmp();
+        this.loadEmployees();
+        this.showToast(`Employe ${payload.prenom} ${payload.nom} mis a jour`);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.savingEmployee = false;
+        this.showToast(this.getEmployeeErrorMessage(error, 'Erreur lors de la mise a jour de l employe'));
+      }
+    });
+  }
+
+  private loadEmployees(): void {
+    this.loadingEmployees = true;
+    this.employeService.getAllEmployes().subscribe({
+      next: (employees) => {
+        this.employees = employees.map((employee) => this.mapEmployeToUi(employee));
+        this.loadingEmployees = false;
+      },
+      error: () => {
+        this.loadingEmployees = false;
+        this.showToast('Impossible de charger les employes');
+      }
+    });
+  }
+
+  loadLeaveRequests(): void {
+    this.loadingLeaveRequests = true;
+    this.demandeCongeService.getAllDemandes().subscribe({
+      next: (requests) => {
+        this.leaveRequests = requests.sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
+        this.loadingLeaveRequests = false;
+      },
+      error: () => {
+        this.loadingLeaveRequests = false;
+        this.showToast('Impossible de charger les demandes de conge');
+      }
+    });
+  }
+
+  private loadFormations(): void {
+    this.loadingFormations = true;
+    this.formationService.getAllFormations().subscribe({
+      next: (formations) => {
+        this.formations = formations.map((formation) => this.mapFormationToUi(formation));
+        this.loadingFormations = false;
+      },
+      error: () => {
+        this.loadingFormations = false;
+        this.showToast('Impossible de charger les formations');
+      }
+    });
+  }
+
+  private loadOffres(): void {
+    this.loadingOffres = true;
+    forkJoin({
+      offres: this.offreEmploiService.getAllOffres(),
+      candidatures: this.candidatureService.getAll()
+    }).subscribe({
+      next: ({ offres, candidatures }) => {
+        const counts = candidatures.reduce((acc, candidature) => {
+          if (candidature.offreId != null) {
+            acc[candidature.offreId] = (acc[candidature.offreId] || 0) + 1;
+          }
+          return acc;
+        }, {} as Record<number, number>);
+
+        this.currentOffres = offres.map((offre) => this.mapApiOffreToUi(offre, counts[offre.id ?? 0] ?? 0));
+        this.loadingOffres = false;
+      },
+      error: () => {
+        this.loadingOffres = false;
+        this.showToast('Impossible de charger les offres');
+      }
+    });
+  }
+
+  private updateLeaveStatus(req: DemandeConge, statut: StatutDemande, successMessage: string): void {
+    if (!req.id) {
+      return;
+    }
+
+    this.updatingLeaveRequestId = req.id;
+    this.demandeCongeService.changeStatut(req.id, statut).subscribe({
+      next: () => {
+        this.updatingLeaveRequestId = null;
+        this.loadLeaveRequests();
+        this.showToast(successMessage);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.updatingLeaveRequestId = null;
+        this.showToast(this.getEmployeeErrorMessage(error, 'Erreur lors de la mise a jour de la demande'));
+      }
+    });
+  }
+
+  private mapEmployeToUi(employee: Employe): Employee {
+    const fullName = `${employee.prenom || ''} ${employee.nom || ''}`.trim();
+    const deptStyle = this.getDeptStyle(employee.departement || '');
+
+    return {
+      id: employee.id ?? 0,
+      matricule: employee.matricule || '-',
+      name: fullName || employee.email,
+      initials: this.getInitials(employee.prenom, employee.nom),
+      role: employee.poste || 'Poste non renseigne',
+      dept: employee.departement || 'Non renseigne',
+      status: 'active',
+      color: deptStyle.bg,
+      textColor: deptStyle.color,
+      absences: 0,
+      joinDate: this.toDateInputValue(employee.dateEmbauche),
+      phone: employee.telephone || '-',
+      email: employee.email,
+      contractType: employee.typeContrat || '-',
+      leaveBalance: employee.soldeConge ?? 0
+    };
+  }
+
+  private buildOffrePayload(statut: OffreStatut = 'OUVERTE'): OffreEmploi {
+    return {
+      titre: this.newOffreTitre.trim(),
+      description: this.newOffreDesc.trim(),
+      type: this.newOffreType,
+      departement: this.newOffreDept,
+      niveau: this.newOffreNiveau,
+      contrat: this.newOffreContrat,
+      skills: [...this.newOffreTags],
+      statut
+    };
+  }
+
+  private mapApiOffreToUi(offre: OffreEmploi, candidaturesCount?: number): JobOffer {
+    const niveau = this.mapNiveauValue(offre.niveau);
+
+    return {
+      id: offre.id ?? 0,
+      type: this.inferCardType(offre.departement, offre.type),
+      title: offre.titre,
+      dept: offre.departement || 'Non precise',
+      niveau,
+      niveauLabel: offre.niveau || 'Non precise',
+      date: this.formatRelativeDate(offre.datePublication),
+      candidatures: candidaturesCount ?? 0,
+      tags: offre.skills || [],
+      description: offre.description || '',
+      contrat: offre.contrat || 'Non precise',
+      offreType: offre.type || 'EXTERNE',
+      statut: offre.statut || 'OUVERTE'
+    };
+  }
+
+  private buildKanbanData(offre: JobOffer, candidatures: BackendCandidature[]): KanbanData {
+    const mapped = candidatures.map((candidature) => this.mapBackendCandidatureToKanban(candidature, offre.tags));
+
+    return {
+      offreTags: offre.tags,
+      trier: mapped.filter((candidature) => candidature.statut === 'EN_ATTENTE').sort((a, b) => b.score - a.score),
+      entretien: mapped.filter((candidature) => candidature.statut === 'ACCEPTEE').sort((a, b) => b.score - a.score),
+      rejetee: mapped.filter((candidature) => candidature.statut === 'REFUSEE').sort((a, b) => b.score - a.score)
+    };
+  }
+
+  private mapBackendCandidatureToKanban(candidature: BackendCandidature, offreTags: string[]): Candidature {
+    const tags = this.extractTagsFromCandidature(candidature);
+    const palette = this.colorFromName(candidature.nomCandidat);
+
+    return {
+      id: candidature.id ?? 0,
+      name: candidature.nomCandidat,
+      initials: this.buildInitials(candidature.nomCandidat),
+      role: candidature.email,
+      color: palette.bg,
+      tc: palette.text,
+      email: candidature.email,
+      tags,
+      score: this.computeScore(tags, offreTags),
+      statut: this.normalizeCandidatureStatus(candidature.statut)
+    };
+  }
+
+  private extractTagsFromCandidature(candidature: BackendCandidature): string[] {
+    const raw = `${candidature.poste || ''},${candidature.departement || ''}`;
+    return raw.split(',').map((item) => item.trim()).filter((item) => !!item);
+  }
+
+  private normalizeCandidatureStatus(statut?: string): 'EN_ATTENTE' | 'ACCEPTEE' | 'REFUSEE' {
+    if (statut === 'REFUSEE') return 'REFUSEE';
+    if (statut === 'ACCEPTEE') return 'ACCEPTEE';
+    return 'EN_ATTENTE';
+  }
+
+  private mapFormationToUi(formation: FormationApi): Formation {
+    const tag = this.mapFormationTag(formation.typeFormation);
+    return {
+      tag,
+      tagLabel: this.mapFormationTagLabel(tag),
+      title: formation.titre,
+      desc: formation.description || 'Aucune description disponible.',
+      duration: this.formatFormationDuration(formation.dateDebut, formation.dateFin),
+      enrolled: formation.capacite ?? 0,
+      rating: this.estimateFormationRating(formation.typeFormation),
+      progress: this.computeFormationProgress(formation.dateDebut, formation.dateFin)
+    };
+  }
+
+  private mapFormationTag(typeFormation?: string): Formation['tag'] {
+    switch ((typeFormation || '').toUpperCase()) {
+      case 'EN_LIGNE':
+        return 'tech';
+      case 'PRESENTIEL':
+        return 'soft';
+      case 'HYBRIDE':
+        return 'lead';
+      default:
+        return 'tech';
+    }
+  }
+
+  private mapFormationTagLabel(tag: Formation['tag']): string {
+    const labels: Record<Formation['tag'], string> = {
+      tech: 'Tech',
+      soft: 'Soft Skills',
+      lead: 'Leadership'
+    };
+    return labels[tag];
+  }
+
+  private computeFormationProgress(dateDebut?: string, dateFin?: string): number {
+    if (!dateDebut || !dateFin) {
+      return 0;
+    }
+
+    const start = new Date(dateDebut).getTime();
+    const end = new Date(dateFin).getTime();
+    const now = Date.now();
+
+    if (Number.isNaN(start) || Number.isNaN(end) || end <= start) {
+      return 0;
+    }
+    if (now <= start) {
+      return 0;
+    }
+    if (now >= end) {
+      return 100;
+    }
+
+    return Math.round(((now - start) / (end - start)) * 100);
+  }
+
+  private formatFormationDuration(dateDebut?: string, dateFin?: string): string {
+    if (!dateDebut || !dateFin) {
+      return '-';
+    }
+
+    const start = new Date(dateDebut);
+    const end = new Date(dateFin);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return '-';
+    }
+
+    const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86400000) + 1);
+    return `${days}j`;
+  }
+
+  private estimateFormationRating(typeFormation?: string): string {
+    const ratings: Record<string, string> = {
+      EN_LIGNE: '4.8',
+      PRESENTIEL: '4.6',
+      HYBRIDE: '4.7'
+    };
+    return ratings[(typeFormation || '').toUpperCase()] || '4.7';
+  }
+
+  leaveEmployeeName(request: DemandeConge): string {
+    return `${request.prenomEmploye || ''} ${request.nomEmploye || ''}`.trim() || request.matriculeEmploye || 'Employe';
+  }
+
+  leaveEmployeeInitials(request: DemandeConge): string {
+    return this.getInitials(request.prenomEmploye, request.nomEmploye);
+  }
+
+  leaveDatesLabel(request: DemandeConge): string {
+    return `${this.formatDate(request.debut)} - ${this.formatDate(request.fin)}`;
+  }
+
+  leaveDays(request: DemandeConge): number {
+    if (!request.debut || !request.fin) {
+      return 0;
+    }
+    const start = new Date(request.debut);
+    const end = new Date(request.fin);
+    return Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
+  }
+
+  leaveTypeLabel(type: DemandeConge['typeConge']): string {
+    return TYPE_LABELS[type] || type;
+  }
+
+  leaveStatusClass(status: StatutDemande): string {
+    const classes: Record<StatutDemande, string> = {
+      EN_ATTENTE: 'pending',
+      APPROUVE: 'active',
+      REFUSEE: 'absent',
+      ANNULE: 'leave'
+    };
+    return classes[status] || 'pending';
+  }
+
+  leaveStatusLabel(status: StatutDemande): string {
+    const labels: Record<StatutDemande, string> = {
+      EN_ATTENTE: 'En attente',
+      APPROUVE: 'Approuve',
+      REFUSEE: 'Refuse',
+      ANNULE: 'Annule'
+    };
+    return labels[status] || status;
+  }
+
+  private getEmptyEmployeeForm(): EmployeeForm {
+    return {
+      nom: '',
+      prenom: '',
+      email: '',
+      telephone: '',
+      matricule: '',
+      poste: '',
+      departement: 'Ingénierie',
+      dateEmbauche: '',
+      typeContrat: 'CDI',
+      soldeConge: 0,
+      motdepasse: ''
+    };
+  }
+
+  private getEmployeeErrorMessage(error: HttpErrorResponse, fallback: string): string {
+    if (typeof error.error === 'string' && error.error.trim()) {
+      return error.error;
+    }
+
+    const serverMessage = error.error?.message || error.error?.error;
+    if (typeof serverMessage === 'string' && serverMessage.trim()) {
+      return serverMessage;
+    }
+
+    return fallback;
+  }
+
+  offreStatusLabel(statut: OffreStatut): string {
+    if (statut === 'FERMEE') return 'Cloturee';
+    if (statut === 'BROUILLON') return 'Brouillon';
+    return 'Ouverte';
+  }
+
+  offreStatusClass(statut: OffreStatut): string {
+    if (statut === 'FERMEE') return 'closed';
+    if (statut === 'BROUILLON') return 'draft';
+    return 'open';
+  }
+
+  private getInitials(prenom?: string, nom?: string): string {
+    return `${prenom?.trim().charAt(0) || ''}${nom?.trim().charAt(0) || ''}`.toUpperCase() || 'EM';
+  }
+
+  private buildInitials(name: string): string {
+    return name
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join('');
+  }
+
+  private extractPrenom(fullName: string): string {
+    return fullName.split(' ')[0] || '';
+  }
+
+  private extractNom(fullName: string): string {
+    return fullName.split(' ').slice(1).join(' ') || '';
+  }
+
+  private toDateInputValue(value?: string): string {
+    if (!value) return '';
+    return value.includes('T') ? value.slice(0, 10) : value;
+  }
+
+  formatDate(value?: string): string {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+    return date.toLocaleDateString('fr-FR');
+  }
+
+  private inferCardType(departement?: string, offreType?: OffreType): 'tech' | 'design' | 'data' {
+    const normalizedDept = (departement || '').toLowerCase();
+    if (normalizedDept.includes('design')) return 'design';
+    if (normalizedDept.includes('data') || normalizedDept.includes('ia')) return 'data';
+    if (offreType === 'INTERNE') return 'design';
+    return 'tech';
+  }
+
+  private mapNiveauValue(niveau?: string): 'junior' | 'mid' | 'senior' {
+    const normalized = (niveau || '').toLowerCase();
+    if (normalized.includes('junior')) return 'junior';
+    if (normalized.includes('mid')) return 'mid';
+    return 'senior';
+  }
+
+  private colorFromName(name: string): { bg: string; text: string } {
+    const palettes = [
+      { bg: 'rgba(108,99,255,0.2)', text: 'var(--accent2)' },
+      { bg: 'rgba(34,211,238,0.16)', text: 'var(--accent6)' },
+      { bg: 'rgba(74,222,128,0.14)', text: 'var(--accent3)' },
+      { bg: 'rgba(245,158,11,0.14)', text: 'var(--accent4)' },
+      { bg: 'rgba(244,63,94,0.14)', text: 'var(--accent5)' }
+    ];
+
+    const index = Math.abs(name.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)) % palettes.length;
+    return palettes[index];
+  }
+
+  private formatRelativeDate(datePublication?: string): string {
+    if (!datePublication) return 'a l instant';
+
+    const now = new Date();
+    const published = new Date(datePublication);
+    const diffMs = now.getTime() - published.getTime();
+    const diffHours = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60)));
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffHours < 1) return "a l'instant";
+    if (diffHours < 24) return `il y a ${diffHours}h`;
+    if (diffDays < 7) return `il y a ${diffDays}j`;
+    return this.formatDate(datePublication);
+  }
 }

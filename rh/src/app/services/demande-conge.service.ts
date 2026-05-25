@@ -4,7 +4,7 @@ import { HttpClient } from '@angular/common/http';
 
 import { Observable } from 'rxjs';
 
-import { DemandeConge, CreateDemandeConge } from '../models/demande-conge';
+import { DemandeConge, CreateDemandeConge, StatutDemande } from '../models/demande-conge';
 
 @Injectable({
   providedIn: 'root'
@@ -84,6 +84,18 @@ export class DemandeCongeService {
 
     return this.http.get<DemandeConge[]>(
       `${this.apiUrl}/statut/${statut}`
+    );
+  }
+
+  // CHANGE STATUT
+  changeStatut(
+    id: number,
+    statut: StatutDemande
+  ): Observable<DemandeConge> {
+
+    return this.http.put<DemandeConge>(
+      `${this.apiUrl}/${id}/statut/${statut}`,
+      {}
     );
   }
 

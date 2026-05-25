@@ -2,11 +2,18 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { forkJoin } from 'rxjs';
 import { AuthService } from '../../../services/auth/auth.service';
 import { AdminService } from '../../../services/admin.service';
 import { Admin } from '../../../models/admin';
+import { Formation as FormationApi } from '../../../models/formation';
+import { Employe } from '../../../models/employe';
 import { OffreEmploi, OffreStatut, OffreType } from '../../../models/offre-emploi';
 import { OffreEmploiService } from '../../../services/offre-emploi.service';
+import { Candidature as BackendCandidature } from '../../../models/candidature';
+import { CandidatureService } from '../../../services/candidature.service';
+import { FormationService } from '../../../services/formation.service';
+import { EmployeService } from '../../../services/employe.service';
 
 interface Employee {
   initials: string;
@@ -16,6 +23,7 @@ interface Employee {
   status: 'active' | 'leave' | 'remote';
   color: string;
   textColor: string;
+  joinDate?: string;
 }
 
 interface Formation {
@@ -45,30 +53,24 @@ interface Offre {
   statut: OffreStatut;
 }
 
-interface Candidature {
+interface KanbanCandidature {
+  id: number;
   name: string;
   initials: string;
   role: string;
   color: string;
   tc: string;
+  email: string;
   tags: string[];
   score: number;
-  daysAgo: number;
+  statut: 'EN_ATTENTE' | 'ACCEPTEE' | 'REFUSEE';
 }
 
 interface CandidaturesData {
   offreTags: string[];
-  trier: Candidature[];
-  entretien: Candidature[];
-  rejetee: Candidature[];
-}
-
-interface LeaveRequest {
-  name: string;
-  initials: string;
-  dates: string;
-  type: string;
-  color: string;
+  trier: KanbanCandidature[];
+  entretien: KanbanCandidature[];
+  rejetee: KanbanCandidature[];
 }
 
 @Component({
@@ -86,8 +88,6 @@ export class EspaceAdminComponent implements OnInit {
 
   pageTitles: Record<string, string> = {
     dashboard: "Vue d'ensemble",
-    employes: 'Employés',
-    conges: 'Congés & Absences',
     formations: 'Formations',
     offres: 'Offres & Recrutement IA',
     analytics: 'Analytique IA',
@@ -123,22 +123,30 @@ export class EspaceAdminComponent implements OnInit {
   savingPassword = false;
   loadingOffres = false;
   savingOffre = false;
+  savingFormation = false;
+  loadingKanban = false;
+  loadingFormations = false;
+  loadingEmployees = false;
 
   // ── UI State ─────────────────────────────────────────────────────────────────
   showModal: boolean = false;
+  showFormationModal: boolean = false;
   showKanbanView: boolean = false;
   toastMessage: string = '';
   toastVisible: boolean = false;
   private toastTimer: any;
 
   searchQuery: string = '';
-  selectedDept: string = 'all';
   selectedFormationTab: string = 'all';
+  currentDate: Date = new Date();
 
   constructor(
     private authService: AuthService,
     private adminService: AdminService,
+    private employeService: EmployeService,
+    private formationService: FormationService,
     private offreEmploiService: OffreEmploiService,
+    private candidatureService: CandidatureService,
     private router: Router
   ) {}
 
@@ -152,6 +160,15 @@ export class EspaceAdminComponent implements OnInit {
   newOffreTags: string[] = [];
   tagInputValue: string = '';
 
+  newFormation: FormationApi = {
+    titre: '',
+    description: '',
+    dateDebut: '',
+    dateFin: '',
+    typeFormation: 'EN_LIGNE',
+    capacite: 1
+  };
+
   // Edit state
   editingOffre: Offre | null = null;
   editOffreTitre: string = '';
@@ -164,6 +181,8 @@ export class EspaceAdminComponent implements OnInit {
   kanbanTitle: string = '';
   kanbanMeta: string = '';
   kanbanData: CandidaturesData | null = null;
+  kanbanOffreId: number | null = null;
+  private draggedCandidature: KanbanCandidature | null = null;
 
   // ── DATA ─────────────────────────────────────────────────────────────────────
   employees: Employee[] = [
@@ -178,50 +197,9 @@ export class EspaceAdminComponent implements OnInit {
     { initials: 'HM', name: 'Hichem Mansouri',   role: 'Finance Analyst',   dept: 'Finance',    status: 'active', color: 'rgba(74,222,128,0.1)',  textColor: 'var(--accent3)' },
   ];
 
-  formations: Formation[] = [
-    { tag: 'tech', tagLabel: 'Tech',        title: 'AWS Cloud Architecture',       desc: "Formation certifiante sur l'architecture cloud AWS, services S3, EC2, Lambda et bonnes pratiques.", duration: '40h', enrolled: 18, rating: '4.8', progress: 68 },
-    { tag: 'tech', tagLabel: 'Tech',        title: 'React.js Avancé & TypeScript', desc: 'Maîtrise des hooks avancés, performance, TypeScript et patterns modernes en React.',               duration: '24h', enrolled: 12, rating: '4.9', progress: 82 },
-    { tag: 'soft', tagLabel: 'Soft Skills', title: 'Communication & Leadership',   desc: "Développer son impact à l'oral, gérer les conflits et animer des équipes pluridisciplinaires.",    duration: '16h', enrolled: 25, rating: '4.6', progress: 54 },
-    { tag: 'lead', tagLabel: 'Leadership',  title: 'Management Agile',             desc: 'Scrum Master, Kanban, OKRs et techniques de management pour équipes tech modernes.',               duration: '32h', enrolled: 8,  rating: '4.7', progress: 71 },
-    { tag: 'tech', tagLabel: 'Tech',        title: 'Machine Learning Python',      desc: 'Scikit-learn, TensorFlow, modèles supervisés et non-supervisés avec cas pratiques.',              duration: '48h', enrolled: 15, rating: '4.8', progress: 43 },
-    { tag: 'soft', tagLabel: 'Soft Skills', title: 'Gestion du Stress & Bien-être',desc: 'Techniques de mindfulness, gestion des priorités et prévention du burn-out.',                     duration: '8h',  enrolled: 31, rating: '4.5', progress: 90 },
-  ];
+  formations: Formation[] = [];
 
   offres: Offre[] = [];
-
-  candidaturesMap: Record<string, CandidaturesData> = {
-    '1': {
-      offreTags: ['React','TypeScript','Node.js','Docker','AWS'],
-      trier: [
-        { name:'Mehdi Gharbi',  initials:'MG', role:'5 ans exp · Frontend',  color:'rgba(108,99,255,0.2)',  tc:'var(--accent2)', tags:['React','TypeScript','Node.js','Docker','Redux'],        score: 92, daysAgo: 2 },
-        { name:'Ines Slimani',  initials:'IS', role:'4 ans exp · Full Stack', color:'rgba(74,222,128,0.1)', tc:'var(--accent3)', tags:['React','Node.js','MongoDB','Docker','GraphQL'],          score: 78, daysAgo: 3 },
-        { name:'Omar Khalil',   initials:'OK', role:'3 ans exp · Backend',    color:'rgba(34,211,238,0.1)', tc:'var(--accent6)', tags:['Node.js','Express','PostgreSQL','Redis'],               score: 51, daysAgo: 1 },
-        { name:'Rania Farhat',  initials:'RF', role:'6 ans exp · Tech Lead',  color:'rgba(245,158,11,0.1)', tc:'var(--accent4)', tags:['React','TypeScript','AWS','Kubernetes','Docker'],       score: 95, daysAgo: 4 },
-      ],
-      entretien: [
-        { name:'Khalil Ben Ali', initials:'KB', role:'7 ans exp · Arch.',     color:'rgba(244,63,94,0.15)',  tc:'var(--accent5)', tags:['React','TypeScript','Node.js','Docker','AWS','Redux'], score: 97, daysAgo: 5 },
-        { name:'Sonia Mzabi',    initials:'SM', role:'5 ans exp · Lead Dev',  color:'rgba(108,99,255,0.15)', tc:'var(--accent2)', tags:['React','TypeScript','AWS','CI/CD'],                   score: 88, daysAgo: 6 },
-      ],
-      rejetee: [
-        { name:'Tarek Salah',   initials:'TS', role:'1 an exp · Junior',      color:'rgba(255,255,255,0.06)', tc:'var(--text3)', tags:['HTML','CSS','JavaScript','Vue.js'],                   score: 22, daysAgo: 3 },
-        { name:'Cyrine Bouzid', initials:'CB', role:'2 ans exp · Dev Web',    color:'rgba(255,255,255,0.06)', tc:'var(--text3)', tags:['PHP','WordPress','jQuery'],                           score: 15, daysAgo: 7 },
-      ]
-    }
-  };
-
-  leaveRequests: LeaveRequest[] = [
-    { name: 'Karim Hamdi',     initials: 'KH', dates: '24–28 Mai',  type: 'Congé annuel',      color: 'var(--accent4)' },
-    { name: 'Sara Amrani',     initials: 'SA', dates: '2–6 Juin',   type: 'Congé maternité',   color: 'var(--accent3)' },
-    { name: 'Amine Oueslati',  initials: 'AO', dates: '10 Juin',    type: 'Absence médicale',  color: 'var(--accent5)' },
-  ];
-
-  // Calendar data
-  calendarDays: { day: number | null; cls: string }[] = [];
-  leaveDays   = [5, 6, 7, 12, 13, 14, 19, 20];
-  pendingDays = [25, 26];
-  today       = 22;
-  weekHeaders = ['L','M','M','J','V','S','D'];
-
   topSkills = [
     { name: 'React.js',     count: 38, color: 'var(--accent)'  },
     { name: 'Python',       count: 35, color: 'var(--accent3)' },
@@ -244,7 +222,8 @@ export class EspaceAdminComponent implements OnInit {
   // ── Lifecycle ────────────────────────────────────────────────────────────────
   ngOnInit(): void {
     this.loadCurrentAdmin();
-    this.buildCalendar();
+    this.loadEmployees();
+    this.loadFormations();
     this.loadOffres();
   }
 
@@ -385,49 +364,120 @@ export class EspaceAdminComponent implements OnInit {
     });
   }
 
-  // ── Calendar ─────────────────────────────────────────────────────────────────
-  buildCalendar(): void {
-    this.calendarDays = [];
-    // May 2025 starts on Thursday → offset = 3 (Mon=0)
-    for (let i = 0; i < 3; i++) {
-      this.calendarDays.push({ day: null, cls: 'cal-day empty' });
-    }
-    for (let d = 1; d <= 31; d++) {
-      let cls = 'cal-day';
-      if (d === this.today)          cls += ' today';
-      else if (this.leaveDays.includes(d))   cls += ' leave-day';
-      else if (this.pendingDays.includes(d)) cls += ' leave-day2';
-      this.calendarDays.push({ day: d, cls });
-    }
+  // ── Formations ───────────────────────────────────────────────────────────────
+  loadEmployees(): void {
+    this.loadingEmployees = true;
+    this.employeService.getAllEmployes().subscribe({
+      next: (employees) => {
+        this.employees = employees
+          .map((employee) => this.mapEmployeToDashboard(employee))
+          .sort((a, b) => this.compareDatesDesc(a.joinDate, b.joinDate));
+        this.loadingEmployees = false;
+      },
+      error: () => {
+        this.loadingEmployees = false;
+        this.showToast('Impossible de charger les employes');
+      }
+    });
   }
 
-  // ── Formations ───────────────────────────────────────────────────────────────
+  get totalEmployees(): number {
+    return this.employees.length;
+  }
+
+  get totalCandidatures(): number {
+    return this.offres.reduce((total, offre) => total + offre.candidatures, 0);
+  }
+
+  get openOffresCount(): number {
+    return this.offres.filter((offre) => offre.statut === 'OUVERTE').length;
+  }
+
+  get dashboardSummary(): string {
+    return `Vous supervisez actuellement ${this.totalEmployees} employes, ${this.activeFormationsCount} formations actives et ${this.totalCandidatures} candidatures sur ${this.openOffresCount} offre${this.openOffresCount > 1 ? 's' : ''} ouverte${this.openOffresCount > 1 ? 's' : ''}.`;
+  }
+
+  get bannerDay(): string {
+    return this.currentDate.toLocaleDateString('fr-FR', { day: '2-digit' });
+  }
+
+  get bannerMonthYear(): string {
+    const formatted = this.currentDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+    return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+  }
+
   get filteredFormations(): Formation[] {
     if (this.selectedFormationTab === 'all') return this.formations;
     return this.formations.filter(f => f.tag === this.selectedFormationTab);
   }
 
+  loadFormations(): void {
+    this.loadingFormations = true;
+    this.formationService.getAllFormations().subscribe({
+      next: (formations) => {
+        this.formations = formations.map((formation) => this.mapFormationToUi(formation));
+        this.loadingFormations = false;
+      },
+      error: () => {
+        this.loadingFormations = false;
+        this.showToast('Impossible de charger les formations');
+      }
+    });
+  }
+
+  get activeFormationsCount(): number {
+    return this.formations.filter(f => f.progress > 0 && f.progress < 100).length;
+  }
+
+  get completedFormationsCount(): number {
+    return this.formations.filter(f => f.progress >= 100).length;
+  }
+
+  get formationsEnrolledCount(): number {
+    return this.formations.reduce((total, formation) => total + formation.enrolled, 0);
+  }
+
+  get formationsAverageRating(): string {
+    if (!this.formations.length) return '0.0';
+    const total = this.formations.reduce((sum, formation) => sum + Number(formation.rating || 0), 0);
+    return (total / this.formations.length).toFixed(1);
+  }
+
   // ── Offres ────────────────────────────────────────────────────────────────────
   openKanban(offre: Offre): void {
+    this.kanbanOffreId = offre.id;
     this.kanbanTitle = offre.title;
     this.kanbanMeta  = `${offre.dept} · ${offre.niveauLabel} · ${this.offreStatusLabel(offre.statut)} · Publié ${offre.date}`;
-    const data = this.candidaturesMap[String(offre.id)] || this.candidaturesMap['1'];
-    const recompute = (list: Candidature[]) =>
-      list.map(c => ({ ...c, score: this.computeScore(c.tags, offre.tags) }));
-    this.kanbanData = {
-      offreTags: offre.tags,
-      trier: recompute(data.trier).sort((a, b) => b.score - a.score),
-      entretien: recompute(data.entretien),
-      rejetee: recompute(data.rejetee),
-    };
     this.showKanbanView = true;
+    this.loadingKanban = true;
+
+    this.candidatureService.getByOffre(offre.id).subscribe({
+      next: (candidatures) => {
+        this.kanbanData = this.buildKanbanData(offre, candidatures);
+        this.loadingKanban = false;
+      },
+      error: () => {
+        this.loadingKanban = false;
+        this.showToast('Erreur lors du chargement des candidatures');
+      }
+    });
   }
 
   loadOffres(): void {
     this.loadingOffres = true;
-    this.offreEmploiService.getAllOffres().subscribe({
-      next: (offres) => {
-        this.offres = offres.map((offre) => this.mapApiOffreToUi(offre));
+    forkJoin({
+      offres: this.offreEmploiService.getAllOffres(),
+      candidatures: this.candidatureService.getAll()
+    }).subscribe({
+      next: ({ offres, candidatures }) => {
+        const counts = candidatures.reduce((acc, candidature) => {
+          if (candidature.offreId != null) {
+            acc[candidature.offreId] = (acc[candidature.offreId] || 0) + 1;
+          }
+          return acc;
+        }, {} as Record<number, number>);
+
+        this.offres = offres.map((offre) => this.mapApiOffreToUi(offre, counts[offre.id ?? 0] ?? 0));
         this.loadingOffres = false;
       },
       error: () => {
@@ -459,6 +509,92 @@ export class EspaceAdminComponent implements OnInit {
       ot.toLowerCase().includes(tag.toLowerCase()) || tag.toLowerCase().includes(ot.toLowerCase())
     );
     return isMatch ? 'match' : isPartial ? 'partial' : 'no-match';
+  }
+
+  onDragStart(candidature: KanbanCandidature): void {
+    this.draggedCandidature = candidature;
+  }
+
+  onDragEnd(): void {
+    this.draggedCandidature = null;
+  }
+
+  allowDrop(event: DragEvent): void {
+    event.preventDefault();
+  }
+
+  onDrop(event: DragEvent, targetStatus: 'EN_ATTENTE' | 'ACCEPTEE' | 'REFUSEE'): void {
+    event.preventDefault();
+
+    if (!this.draggedCandidature || this.draggedCandidature.statut === targetStatus) {
+      this.draggedCandidature = null;
+      return;
+    }
+
+    this.candidatureService.changeStatut(this.draggedCandidature.id, targetStatus).subscribe({
+      next: () => {
+        const currentOffre = this.offres.find((offre) => offre.id === this.kanbanOffreId);
+        if (currentOffre) {
+          this.openKanban(currentOffre);
+        }
+        this.draggedCandidature = null;
+        this.showToast('Statut candidature mis a jour');
+      },
+      error: () => {
+        this.draggedCandidature = null;
+        this.showToast('Erreur lors de la mise a jour du statut');
+      }
+    });
+  }
+
+  openFormationModal(): void {
+    this.resetFormationForm();
+    this.showFormationModal = true;
+  }
+
+  closeFormationModal(): void {
+    this.showFormationModal = false;
+    this.savingFormation = false;
+  }
+
+  createFormation(): void {
+    if (!this.newFormation.titre.trim() || !this.newFormation.description.trim()) {
+      this.showToast('Veuillez renseigner le titre et la description');
+      return;
+    }
+
+    if (!this.newFormation.dateDebut || !this.newFormation.dateFin) {
+      this.showToast('Veuillez renseigner les dates de debut et de fin');
+      return;
+    }
+
+    if (new Date(this.newFormation.dateFin) < new Date(this.newFormation.dateDebut)) {
+      this.showToast('La date de fin doit etre apres la date de debut');
+      return;
+    }
+
+    if (!this.newFormation.capacite || this.newFormation.capacite < 1) {
+      this.showToast('La capacite doit etre superieure a 0');
+      return;
+    }
+
+    this.savingFormation = true;
+    this.formationService.createFormation({
+      ...this.newFormation,
+      titre: this.newFormation.titre.trim(),
+      description: this.newFormation.description.trim()
+    }).subscribe({
+      next: () => {
+        this.savingFormation = false;
+        this.closeFormationModal();
+        this.loadFormations();
+        this.showToast('Formation creee avec succes');
+      },
+      error: () => {
+        this.savingFormation = false;
+        this.showToast("Erreur lors de la creation de la formation");
+      }
+    });
   }
 
   // ── Modal ────────────────────────────────────────────────────────────────────
@@ -594,32 +730,6 @@ export class EspaceAdminComponent implements OnInit {
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
-  get filteredEmployees(): Employee[] {
-    let list = this.employees;
-    if (this.selectedDept !== 'all') {
-      list = list.filter(e => e.dept === this.selectedDept);
-    }
-    return list;
-  }
-
-  deptBg(dept: string): string {
-    const map: Record<string, string> = {
-      'Ingénierie': 'rgba(108,99,255,0.1)', 'IA': 'rgba(34,211,238,0.1)',
-      'Design': 'rgba(244,63,94,0.1)',      'Produit': 'rgba(74,222,128,0.1)',
-      'Marketing': 'rgba(245,158,11,0.1)',  'Finance': 'rgba(255,255,255,0.05)'
-    };
-    return map[dept] || 'rgba(255,255,255,0.05)';
-  }
-
-  deptText(dept: string): string {
-    const map: Record<string, string> = {
-      'Ingénierie': 'var(--accent2)', 'IA': 'var(--accent6)',
-      'Design': 'var(--accent5)',     'Produit': 'var(--accent3)',
-      'Marketing': 'var(--accent4)', 'Finance': 'var(--text2)'
-    };
-    return map[dept] || 'var(--text2)';
-  }
-
   get topSkillsMax(): number { return this.topSkills[0]?.count || 1; }
 
   formatDate(d: string): string {
@@ -645,7 +755,6 @@ export class EspaceAdminComponent implements OnInit {
       titre: this.newOffreTitre.trim(),
       description: this.newOffreDesc.trim(),
       type: this.newOffreType,
-      candidatures: this.editingOffre?.candidatures ?? 0,
       departement: this.newOffreDept,
       niveau: this.newOffreNiveau,
       contrat: this.newOffreContrat,
@@ -654,7 +763,7 @@ export class EspaceAdminComponent implements OnInit {
     };
   }
 
-  private mapApiOffreToUi(offre: OffreEmploi): Offre {
+  private mapApiOffreToUi(offre: OffreEmploi, candidaturesCount?: number): Offre {
     const niveau = this.mapNiveauValue(offre.niveau);
 
     return {
@@ -665,13 +774,79 @@ export class EspaceAdminComponent implements OnInit {
       niveau,
       niveauLabel: offre.niveau || 'Non precise',
       date: this.formatRelativeDate(offre.datePublication),
-      candidatures: offre.candidatures ?? 0,
+      candidatures: candidaturesCount ?? 0,
       tags: offre.skills || [],
       description: offre.description || '',
       contrat: offre.contrat || 'Non precise',
       offreType: (offre.type as OffreType) || 'EXTERNE',
       statut: (offre.statut as OffreStatut) || 'OUVERTE'
     };
+  }
+
+  private buildKanbanData(offre: Offre, candidatures: BackendCandidature[]): CandidaturesData {
+    const mapped = candidatures.map((candidature) => this.mapBackendCandidatureToKanban(candidature, offre.tags));
+
+    return {
+      offreTags: offre.tags,
+      trier: mapped.filter((candidature) => candidature.statut === 'EN_ATTENTE').sort((a, b) => b.score - a.score),
+      entretien: mapped.filter((candidature) => candidature.statut === 'ACCEPTEE').sort((a, b) => b.score - a.score),
+      rejetee: mapped.filter((candidature) => candidature.statut === 'REFUSEE').sort((a, b) => b.score - a.score)
+    };
+  }
+
+  private mapBackendCandidatureToKanban(candidature: BackendCandidature, offreTags: string[]): KanbanCandidature {
+    const tags = this.extractTagsFromCandidature(candidature);
+    const palette = this.colorFromName(candidature.nomCandidat);
+
+    return {
+      id: candidature.id ?? 0,
+      name: candidature.nomCandidat,
+      initials: this.buildInitials(candidature.nomCandidat),
+      role: candidature.email,
+      color: palette.bg,
+      tc: palette.text,
+      email: candidature.email,
+      tags,
+      score: this.computeScore(tags, offreTags),
+      statut: this.normalizeCandidatureStatus(candidature.statut)
+    };
+  }
+
+  private extractTagsFromCandidature(candidature: BackendCandidature): string[] {
+    const raw = `${candidature.poste || ''},${candidature.departement || ''}`;
+
+    return raw
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => !!item);
+  }
+
+  private normalizeCandidatureStatus(statut?: string): 'EN_ATTENTE' | 'ACCEPTEE' | 'REFUSEE' {
+    if (statut === 'REFUSEE') return 'REFUSEE';
+    if (statut === 'ACCEPTEE') return 'ACCEPTEE';
+    return 'EN_ATTENTE';
+  }
+
+  private buildInitials(name: string): string {
+    return name
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join('');
+  }
+
+  private colorFromName(name: string): { bg: string; text: string } {
+    const palettes = [
+      { bg: 'rgba(108,99,255,0.2)', text: 'var(--accent2)' },
+      { bg: 'rgba(34,211,238,0.16)', text: 'var(--accent6)' },
+      { bg: 'rgba(74,222,128,0.14)', text: 'var(--accent3)' },
+      { bg: 'rgba(245,158,11,0.14)', text: 'var(--accent4)' },
+      { bg: 'rgba(244,63,94,0.14)', text: 'var(--accent5)' }
+    ];
+
+    const index = Math.abs(name.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)) % palettes.length;
+    return palettes[index];
   }
 
   private inferCardType(departement?: string, offreType?: OffreType): 'tech' | 'design' | 'data' {
@@ -748,6 +923,131 @@ export class EspaceAdminComponent implements OnInit {
   private buildAvatar(prenom?: string, nom?: string): string {
     const initials = `${prenom?.charAt(0) || ''}${nom?.charAt(0) || ''}`.trim().toUpperCase();
     return initials || this.admin.avatar;
+  }
+
+  private mapEmployeToDashboard(employee: Employe): Employee {
+    const fullName = `${employee.prenom || ''} ${employee.nom || ''}`.trim();
+    const deptStyle = this.getDeptStyle(employee.departement || '');
+
+    return {
+      initials: this.getInitials(employee.prenom, employee.nom),
+      name: fullName || employee.email,
+      role: employee.poste || 'Poste non renseigne',
+      dept: employee.departement || 'Non renseigne',
+      status: 'active',
+      color: deptStyle.bg,
+      textColor: deptStyle.color,
+      joinDate: this.toDateInputValue(employee.dateEmbauche || employee.dateCreation)
+    };
+  }
+
+  private getDeptStyle(dept: string): { bg: string; color: string } {
+    const normalizedDept = (dept || '').toLowerCase();
+    if (normalizedDept.includes('ingen') || normalizedDept.includes('tech')) {
+      return { bg: 'rgba(108,99,255,0.2)', color: 'var(--accent2)' };
+    }
+    if (normalizedDept.includes('design')) {
+      return { bg: 'rgba(244,63,94,0.15)', color: 'var(--accent5)' };
+    }
+    if (normalizedDept.includes('marketing') || normalizedDept.includes('commercial')) {
+      return { bg: 'rgba(245,158,11,0.12)', color: 'var(--accent4)' };
+    }
+    if (normalizedDept.includes('finance')) {
+      return { bg: 'rgba(34,211,238,0.12)', color: 'var(--accent6)' };
+    }
+    return { bg: 'rgba(74,222,128,0.1)', color: 'var(--accent3)' };
+  }
+
+  private getInitials(prenom?: string, nom?: string): string {
+    const initials = `${prenom?.charAt(0) || ''}${nom?.charAt(0) || ''}`.toUpperCase();
+    return initials || 'EM';
+  }
+
+  private compareDatesDesc(a?: string, b?: string): number {
+    const aTime = a ? new Date(a).getTime() : 0;
+    const bTime = b ? new Date(b).getTime() : 0;
+    return bTime - aTime;
+  }
+
+  private resetFormationForm(): void {
+    this.newFormation = {
+      titre: '',
+      description: '',
+      dateDebut: '',
+      dateFin: '',
+      typeFormation: 'EN_LIGNE',
+      capacite: 1
+    };
+  }
+
+  private mapFormationToUi(formation: FormationApi): Formation {
+    const tag = this.mapFormationTag(formation.typeFormation);
+    return {
+      tag,
+      tagLabel: this.mapFormationTagLabel(tag),
+      title: formation.titre,
+      desc: formation.description || 'Aucune description disponible.',
+      duration: this.formatFormationDuration(formation.dateDebut, formation.dateFin),
+      enrolled: formation.capacite ?? 0,
+      rating: this.estimateFormationRating(formation.typeFormation),
+      progress: this.computeFormationProgress(formation.dateDebut, formation.dateFin)
+    };
+  }
+
+  private mapFormationTag(typeFormation?: string): Formation['tag'] {
+    switch ((typeFormation || '').toUpperCase()) {
+      case 'EN_LIGNE':
+        return 'tech';
+      case 'PRESENTIEL':
+        return 'soft';
+      case 'HYBRIDE':
+        return 'lead';
+      default:
+        return 'tech';
+    }
+  }
+
+  private mapFormationTagLabel(tag: Formation['tag']): string {
+    const labels: Record<Formation['tag'], string> = {
+      tech: 'Tech',
+      soft: 'Soft Skills',
+      lead: 'Leadership'
+    };
+    return labels[tag];
+  }
+
+  private computeFormationProgress(dateDebut?: string, dateFin?: string): number {
+    if (!dateDebut || !dateFin) return 0;
+
+    const start = new Date(dateDebut).getTime();
+    const end = new Date(dateFin).getTime();
+    const now = Date.now();
+
+    if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return 0;
+    if (now <= start) return 0;
+    if (now >= end) return 100;
+
+    return Math.round(((now - start) / (end - start)) * 100);
+  }
+
+  private formatFormationDuration(dateDebut?: string, dateFin?: string): string {
+    if (!dateDebut || !dateFin) return '-';
+
+    const start = new Date(dateDebut);
+    const end = new Date(dateFin);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '-';
+
+    const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86400000) + 1);
+    return `${days}j`;
+  }
+
+  private estimateFormationRating(typeFormation?: string): string {
+    const ratings: Record<string, string> = {
+      EN_LIGNE: '4.8',
+      PRESENTIEL: '4.6',
+      HYBRIDE: '4.7'
+    };
+    return ratings[(typeFormation || '').toUpperCase()] || '4.7';
   }
 
   private toDateInputValue(value: string | undefined): string {
