@@ -5,13 +5,13 @@ import java.util.List;
 
 public interface OffreEmploiService {
 
+    OffreEmploiDTO createOffre(OffreEmploiDTO dto);
+
     OffreEmploiDTO updateOffre(Long id, OffreEmploiDTO dto);
 
     OffreEmploiDTO getOffreById(Long id);
 
     List<OffreEmploiDTO> getAllOffres();
-
-    void createOffre(OffreEmploi offre);
 
     void deleteOffre(Long id);
 

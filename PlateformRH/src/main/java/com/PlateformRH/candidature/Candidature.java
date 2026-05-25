@@ -20,12 +20,11 @@ public class Candidature {
 
     private String cv;
     private String lettreMotivation;
+    
 
     @ManyToOne
     private OffreEmploi offre;
 
     @Enumerated(EnumType.STRING)
-    private
-
-    StatutCandidature statut;
+    private StatutCandidature statut;
 }

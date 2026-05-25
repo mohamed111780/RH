@@ -10,4 +10,5 @@ import java.util.List;
 public interface CandidatureRepository extends JpaRepository<Candidature, Long> {
 
     List<Candidature> findByOffreId(Long offreId);
+    
 }

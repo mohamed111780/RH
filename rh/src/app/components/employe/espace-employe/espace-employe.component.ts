@@ -304,11 +304,11 @@ export class EspaceEmployeComponent implements OnInit {
     this.showToast('Demande annulÃ©e');
   }
 
-  // â”€â”€ Offres â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Offres ──────────────────────────────────────────────────────────────────────────────────────────
   postuler(offre: OffreInterne): void {
     offre.postule = true;
     this.showOffreModal = null;
-    this.showToast(`ðŸš€ Candidature envoyÃ©e pour "${offre.title}" !`);
+    this.showToast(`🚀 Candidature envoyée pour "${offre.title}" !`);
   }
 
   // â”€â”€ Formations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

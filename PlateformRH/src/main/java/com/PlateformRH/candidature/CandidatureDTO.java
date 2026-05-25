@@ -15,6 +15,7 @@ public class CandidatureDTO {
 
     private String cv;
     private String lettreMotivation;
+    
 
     private String statut;
 

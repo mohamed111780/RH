@@ -32,7 +32,7 @@
     <i class="fas fa-briefcase"></i> Offres d'emploi
     <span class="nav-badge">5</span>
   </div>
-  <div class="nav-item" (click)="showPage('offres'); openKanban(offres[0])">
+  <div class="nav-item" (click)="showPage('offres'); offres.length && openKanban(offres[0])">
     <i class="fas fa-layer-group"></i> Kanban candidatures
   </div>
   <div class="nav-item" [class.active]="currentPage === 'analytics'" (click)="showPage('analytics')">
@@ -358,20 +358,46 @@
           <button class="btn-primary" (click)="openModal()"><i class="fas fa-plus"></i> Nouvelle offre</button>
         </div>
 
+        <div class="card" *ngIf="loadingOffres" style="padding:18px;text-align:center;color:var(--text3);margin-bottom:16px;">
+          Chargement des offres...
+        </div>
+
+        <div class="card" *ngIf="!loadingOffres && !offres.length" style="padding:18px;text-align:center;color:var(--text3);margin-bottom:16px;">
+          Aucune offre disponible pour le moment.
+        </div>
+
         <div class="offres-grid">
           <div class="offre-card" [class]="o.type" *ngFor="let o of offres" (click)="openKanban(o)">
             <div style="display:flex;align-items:start;justify-content:space-between;margin-bottom:8px;">
-              <span class="offre-niveau" [class]="o.niveau">{{ o.niveauLabel }}</span>
-              <span style="font-size:10px;color:var(--text3);">Il y a {{ o.date }}</span>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <span class="offre-niveau" [class]="o.niveau">{{ o.niveauLabel }}</span>
+                <span class="offre-status" [class]="offreStatusClass(o.statut)">{{ offreStatusLabel(o.statut) }}</span>
+              </div>
+              <span style="font-size:10px;color:var(--text3);">{{ o.date }}</span>
             </div>
             <h4>{{ o.title }}</h4>
             <div class="offre-dept"><i class="fas fa-building" style="margin-right:5px;"></i>{{ o.dept }}</div>
+            <div class="offre-dept"><i class="fas fa-file-signature" style="margin-right:5px;"></i>{{ o.contrat }} · {{ o.offreType }}</div>
+            <div class="offre-dept"><i class="fas fa-users" style="margin-right:5px;"></i>{{ o.candidatures }} candidature{{ o.candidatures > 1 ? 's' : '' }}</div>
+            <p class="offre-description">{{ o.description || 'Aucune description disponible pour cette offre.' }}</p>
+            <div class="offre-skills-title">
+              <i class="fas fa-code"></i> Competences
+            </div>
             <div class="offre-tags">
               <span class="offre-tag" *ngFor="let t of o.tags">{{ t }}</span>
+              <span class="offre-tag empty" *ngIf="!o.tags.length">Aucune competence renseignee</span>
             </div>
             <div class="offre-footer">
               <span><i class="fas fa-file-alt" style="margin-right:4px;"></i>Voir candidatures</span>
               <span class="candidatures-count">{{ o.candidatures }} candidatures</span>
+            </div>
+            <div class="offre-actions">
+              <button class="btn-secondary offre-action-btn" (click)="$event.stopPropagation(); openEditModal(o)">
+                <i class="fas fa-pen"></i> Modifier
+              </button>
+              <button class="btn-secondary offre-action-btn danger" [disabled]="o.statut === 'FERMEE'" (click)="$event.stopPropagation(); cloturerOffre(o)">
+                <i class="fas fa-lock"></i> Cloturer
+              </button>
             </div>
           </div>
         </div>
@@ -660,63 +686,98 @@
 </main><!-- /main -->
 
 <!-- ══════════ MODAL NOUVELLE OFFRE ══════════ -->
-<div class="modal-overlay" *ngIf="showModal" (click)="closeModal()">
+<div class="modal-overlay open" *ngIf="showModal" (click)="editingOffre ? closeEditModal() : closeModal()">
   <div class="modal" (click)="$event.stopPropagation()">
-    <h2>✨ Nouvelle offre d'emploi</h2>
-    <p>Définissez les compétences requises pour activer le matching IA automatique</p>
-
-    <div class="form-group">
-      <label>Titre du poste</label>
-      <input type="text" [(ngModel)]="newOffreTitre" placeholder="ex: Lead Developer React.js">
-    </div>
-
-    <div class="form-group">
-      <label>Description</label>
-      <textarea [(ngModel)]="newOffreDesc" placeholder="Décrivez le poste, les responsabilités, l'environnement de travail..."></textarea>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-      <div class="form-group">
-        <label>Département</label>
-        <select [(ngModel)]="newOffreDept">
-          <option>Ingénierie</option><option>Design</option>
-          <option>Marketing</option><option>Finance</option><option>Produit</option>
-        </select>
+    <div class="modal-head">
+      <div>
+        <h2 *ngIf="!editingOffre">Nouvelle offre d'emploi</h2>
+        <h2 *ngIf="editingOffre">Modifier l'offre</h2>
+        <p>Renseignez tous les champs de l'offre et les skills utilises par le matching IA.</p>
       </div>
-      <div class="form-group">
-        <label>Niveau</label>
-        <select [(ngModel)]="newOffreNiveau">
-          <option>Junior</option><option>Mid-level</option>
-          <option>Senior</option><option>Lead</option><option>Manager</option>
-        </select>
+      <div class="modal-badge">
+        <i class="fas fa-briefcase"></i>
+        <span>{{ editingOffre ? 'Edition' : 'Creation' }}</span>
       </div>
     </div>
 
-    <div class="form-group">
-      <label>🤖 Compétences requises (Tags IA)</label>
-      <div class="tags-input-container">
-        <div class="tag-pill" *ngFor="let tag of newOffreTags">
-          {{ tag }} <span class="remove-tag" (click)="removeTag(tag)">×</span>
+    <div class="modal-section">
+      <div class="modal-section-title">Informations generales</div>
+
+      <div class="form-group">
+        <label>Titre du poste</label>
+        <input type="text" [(ngModel)]="newOffreTitre" placeholder="ex: Lead Developer React.js">
+      </div>
+
+      <div class="form-group">
+        <label>Description</label>
+        <textarea [(ngModel)]="newOffreDesc" placeholder="Décrivez le poste, les responsabilités, l'environnement de travail..."></textarea>
+      </div>
+
+      <div class="modal-grid">
+        <div class="form-group">
+          <label>Type d'offre</label>
+          <select [(ngModel)]="newOffreType">
+            <option value="EXTERNE">Externe</option>
+            <option value="INTERNE">Interne</option>
+          </select>
         </div>
-        <input type="text" class="tags-input" [(ngModel)]="tagInputValue"
-          placeholder="Tapez et appuyez Entrée..." (keydown)="addTag($event)">
-      </div>
-      <div style="font-size:11px;color:var(--text3);margin-top:6px;">
-        <i class="fas fa-robot" style="color:var(--accent4);"></i>
-        Ces tags seront utilisés par l'IA pour scorer les candidatures reçues
+        <div class="form-group">
+          <label>Département</label>
+          <select [(ngModel)]="newOffreDept">
+            <option>Ingénierie</option><option>Design</option>
+            <option>Marketing</option><option>Finance</option><option>Produit</option><option>Data & IA</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Niveau</label>
+          <select [(ngModel)]="newOffreNiveau">
+            <option>Junior</option><option>Mid-level</option>
+            <option>Senior</option><option>Lead</option><option>Manager</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Type de contrat</label>
+          <select [(ngModel)]="newOffreContrat">
+            <option>CDI</option><option>CDD</option><option>Stage</option><option>Freelance</option>
+          </select>
+        </div>
       </div>
     </div>
 
-    <div class="form-group">
-      <label>Type de contrat</label>
-      <select [(ngModel)]="newOffreContrat">
-        <option>CDI</option><option>CDD</option><option>Stage</option><option>Freelance</option>
-      </select>
+    <div class="modal-section skills-section">
+      <div class="modal-section-row">
+        <div>
+          <div class="modal-section-title">Skills recherchees</div>
+          <div class="modal-section-subtitle">Ajoutez les compétences clés qui serviront à filtrer et scorer les candidatures.</div>
+        </div>
+        <div class="skills-counter">{{ newOffreTags.length }} skill{{ newOffreTags.length > 1 ? 's' : '' }}</div>
+      </div>
+
+      <div class="form-group">
+        <label>Compétences requises</label>
+        <div class="tags-input-container skills-box">
+          <div class="tag-pill" *ngFor="let tag of newOffreTags">
+            {{ tag }} <span class="remove-tag" (click)="removeTag(tag)">×</span>
+          </div>
+          <input
+            type="text"
+            class="tags-input"
+            [(ngModel)]="tagInputValue"
+            placeholder="Ex: Angular, Spring Boot, SQL..."
+            (keydown)="addTag($event)">
+        </div>
+      </div>
+
+      <div class="skills-helper">
+        <i class="fas fa-robot"></i>
+        Ces skills seront utilisées par l'IA pour le matching automatique.
+      </div>
     </div>
 
     <div class="modal-actions">
-      <button class="btn-primary" (click)="createOffre()"><i class="fas fa-rocket"></i> Publier l'offre</button>
-      <button class="btn-secondary" (click)="closeModal()">Annuler</button>
+      <button class="btn-primary" *ngIf="!editingOffre" [disabled]="savingOffre" (click)="createOffre()"><i class="fas fa-rocket"></i> {{ savingOffre ? 'Publication...' : "Publier l'offre" }}</button>
+      <button class="btn-primary" *ngIf="editingOffre" [disabled]="savingOffre" (click)="saveEditOffre()"><i class="fas fa-save"></i> {{ savingOffre ? 'Enregistrement...' : 'Enregistrer' }}</button>
+      <button class="btn-secondary" (click)="editingOffre ? closeEditModal() : closeModal()">Annuler</button>
     </div>
   </div>
 </div>

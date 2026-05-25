@@ -15,8 +15,8 @@ public class OffreEmploiController {
     private final OffreEmploiServiceImpl offreService;
 
     @PostMapping
-    public void addOffre(@RequestBody OffreEmploi offre) {
-        offreService.createOffre(offre);
+    public ResponseEntity<OffreEmploiDTO> addOffre(@RequestBody OffreEmploiDTO offre) {
+        return ResponseEntity.ok(offreService.createOffre(offre));
     }
 
     @GetMapping

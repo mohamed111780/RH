@@ -5,6 +5,8 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../../services/auth/auth.service';
 import { AdminService } from '../../../services/admin.service';
 import { Admin } from '../../../models/admin';
+import { OffreEmploi, OffreStatut, OffreType } from '../../../models/offre-emploi';
+import { OffreEmploiService } from '../../../services/offre-emploi.service';
 
 interface Employee {
   initials: string;
@@ -28,7 +30,7 @@ interface Formation {
 }
 
 interface Offre {
-  id: string;
+  id: number;
   type: 'tech' | 'design' | 'data';
   title: string;
   dept: string;
@@ -37,6 +39,10 @@ interface Offre {
   date: string;
   candidatures: number;
   tags: string[];
+  description: string;
+  contrat: string;
+  offreType: OffreType;
+  statut: OffreStatut;
 }
 
 interface Candidature {
@@ -115,6 +121,8 @@ export class EspaceAdminComponent implements OnInit {
   loadingProfile = false;
   savingProfile = false;
   savingPassword = false;
+  loadingOffres = false;
+  savingOffre = false;
 
   // ── UI State ─────────────────────────────────────────────────────────────────
   showModal: boolean = false;
@@ -130,6 +138,7 @@ export class EspaceAdminComponent implements OnInit {
   constructor(
     private authService: AuthService,
     private adminService: AdminService,
+    private offreEmploiService: OffreEmploiService,
     private router: Router
   ) {}
 
@@ -139,8 +148,17 @@ export class EspaceAdminComponent implements OnInit {
   newOffreDept: string = 'Ingénierie';
   newOffreNiveau: string = 'Senior';
   newOffreContrat: string = 'CDI';
+  newOffreType: OffreType = 'EXTERNE';
   newOffreTags: string[] = [];
   tagInputValue: string = '';
+
+  // Edit state
+  editingOffre: Offre | null = null;
+  editOffreTitre: string = '';
+  editOffreDesc: string = '';
+  editOffreDept: string = '';
+  editOffreNiveau: string = '';
+  editOffreTags: string[] = [];
 
   // ── Kanban State ──────────────────────────────────────────────────────────────
   kanbanTitle: string = '';
@@ -169,16 +187,10 @@ export class EspaceAdminComponent implements OnInit {
     { tag: 'soft', tagLabel: 'Soft Skills', title: 'Gestion du Stress & Bien-être',desc: 'Techniques de mindfulness, gestion des priorités et prévention du burn-out.',                     duration: '8h',  enrolled: 31, rating: '4.5', progress: 90 },
   ];
 
-  offres: Offre[] = [
-    { id: 'offre-1', type: 'tech',   title: 'Lead Developer React.js', dept: 'Ingénierie', niveau: 'senior', niveauLabel: 'Senior',   date: '3 jours',   candidatures: 12, tags: ['React','TypeScript','Node.js','Docker','AWS'] },
-    { id: 'offre-2', type: 'data',   title: 'Data Engineer',           dept: 'Data & IA',  niveau: 'mid',    niveauLabel: 'Mid-level', date: '5 jours',   candidatures: 9,  tags: ['Python','Spark','Airflow','SQL','Kafka'] },
-    { id: 'offre-3', type: 'design', title: 'UX/UI Designer Senior',   dept: 'Design',     niveau: 'senior', niveauLabel: 'Senior',   date: '1 semaine', candidatures: 17, tags: ['Figma','UX Research','Prototyping','Design System'] },
-    { id: 'offre-4', type: 'tech',   title: 'DevOps Engineer',         dept: 'Ingénierie', niveau: 'senior', niveauLabel: 'Senior',   date: '2 jours',   candidatures: 8,  tags: ['Kubernetes','Docker','CI/CD','Terraform','AWS'] },
-    { id: 'offre-5', type: 'data',   title: 'Machine Learning Engineer',dept: 'IA',        niveau: 'senior', niveauLabel: 'Senior',   date: '1 semaine', candidatures: 7,  tags: ['Python','TensorFlow','MLflow','Docker','NLP'] },
-  ];
+  offres: Offre[] = [];
 
   candidaturesMap: Record<string, CandidaturesData> = {
-    'offre-1': {
+    '1': {
       offreTags: ['React','TypeScript','Node.js','Docker','AWS'],
       trier: [
         { name:'Mehdi Gharbi',  initials:'MG', role:'5 ans exp · Frontend',  color:'rgba(108,99,255,0.2)',  tc:'var(--accent2)', tags:['React','TypeScript','Node.js','Docker','Redux'],        score: 92, daysAgo: 2 },
@@ -233,6 +245,7 @@ export class EspaceAdminComponent implements OnInit {
   ngOnInit(): void {
     this.loadCurrentAdmin();
     this.buildCalendar();
+    this.loadOffres();
   }
 
   // ── Navigation ────────────────────────────────────────────────────────────────
@@ -240,6 +253,9 @@ export class EspaceAdminComponent implements OnInit {
     this.currentPage = page;
     this.pageTitle = this.pageTitles[page] || page;
     this.showKanbanView = false;
+    if (page === 'offres') {
+      this.loadOffres();
+    }
   }
 
   logoutAdmin(): void {
@@ -394,18 +410,31 @@ export class EspaceAdminComponent implements OnInit {
   // ── Offres ────────────────────────────────────────────────────────────────────
   openKanban(offre: Offre): void {
     this.kanbanTitle = offre.title;
-    this.kanbanMeta  = `${offre.dept} · ${offre.niveauLabel} · Publié il y a ${offre.date}`;
-    const data = this.candidaturesMap[offre.id] || this.candidaturesMap['offre-1'];
-    // recompute scores
+    this.kanbanMeta  = `${offre.dept} · ${offre.niveauLabel} · ${this.offreStatusLabel(offre.statut)} · Publié ${offre.date}`;
+    const data = this.candidaturesMap[String(offre.id)] || this.candidaturesMap['1'];
     const recompute = (list: Candidature[]) =>
       list.map(c => ({ ...c, score: this.computeScore(c.tags, offre.tags) }));
     this.kanbanData = {
       offreTags: offre.tags,
-      trier:    recompute(data.trier).sort((a, b) => b.score - a.score),
+      trier: recompute(data.trier).sort((a, b) => b.score - a.score),
       entretien: recompute(data.entretien),
-      rejetee:  recompute(data.rejetee),
+      rejetee: recompute(data.rejetee),
     };
     this.showKanbanView = true;
+  }
+
+  loadOffres(): void {
+    this.loadingOffres = true;
+    this.offreEmploiService.getAllOffres().subscribe({
+      next: (offres) => {
+        this.offres = offres.map((offre) => this.mapApiOffreToUi(offre));
+        this.loadingOffres = false;
+      },
+      error: () => {
+        this.loadingOffres = false;
+        this.showToast('Erreur lors du chargement des offres');
+      }
+    });
   }
 
   computeScore(candTags: string[], offreTags: string[]): number {
@@ -434,17 +463,22 @@ export class EspaceAdminComponent implements OnInit {
 
   // ── Modal ────────────────────────────────────────────────────────────────────
   openModal(): void {
-    this.newOffreTitre   = '';
-    this.newOffreDesc    = '';
-    this.newOffreDept    = 'Ingénierie';
-    this.newOffreNiveau  = 'Senior';
+    this.editingOffre = null;
+    this.newOffreTitre = '';
+    this.newOffreDesc = '';
+    this.newOffreDept = 'Ingénierie';
+    this.newOffreNiveau = 'Senior';
     this.newOffreContrat = 'CDI';
-    this.newOffreTags    = [];
-    this.tagInputValue   = '';
-    this.showModal       = true;
+    this.newOffreType = 'EXTERNE';
+    this.newOffreTags = [];
+    this.tagInputValue = '';
+    this.showModal = true;
   }
 
-  closeModal(): void { this.showModal = false; }
+  closeModal(): void {
+    this.showModal = false;
+    this.editingOffre = null;
+  }
 
   addTag(event: KeyboardEvent): void {
     if (event.key === 'Enter' || event.key === ',') {
@@ -462,28 +496,94 @@ export class EspaceAdminComponent implements OnInit {
   }
 
   createOffre(): void {
-    if (!this.newOffreTitre.trim()) {
-      this.showToast('⚠️ Veuillez saisir un titre');
+    if (!this.newOffreTitre.trim() || !this.newOffreDesc.trim()) {
+      this.showToast('Veuillez renseigner le titre et la description');
       return;
     }
-    const niveauMap: Record<string, 'junior'|'mid'|'senior'> = {
-      Junior: 'junior', 'Mid-level': 'mid', Senior: 'senior', Lead: 'senior', Manager: 'senior'
-    };
-    const newOffre: Offre = {
-      id:           'offre-' + Date.now(),
-      type:         'tech',
-      title:        this.newOffreTitre,
-      dept:         this.newOffreDept,
-      niveau:       niveauMap[this.newOffreNiveau] || 'mid',
-      niveauLabel:  this.newOffreNiveau,
-      date:         'maintenant',
-      candidatures: 0,
-      tags:         [...this.newOffreTags],
-    };
-    this.offres = [newOffre, ...this.offres];
-    this.closeModal();
-    this.showToast(`🚀 Offre "${newOffre.title}" publiée avec succès !`);
+    if (!this.newOffreTags.length) {
+      this.showToast('Veuillez ajouter au moins une skill');
+      return;
+    }
+
+    this.savingOffre = true;
+    this.offreEmploiService.createOffre(this.buildOffrePayload()).subscribe({
+      next: (created) => {
+        this.savingOffre = false;
+        this.closeModal();
+        this.loadOffres();
+        this.showToast(`Offre "${created.titre}" publiee avec succes`);
+      },
+      error: () => {
+        this.savingOffre = false;
+        this.showToast("Erreur lors de l'ajout de l'offre");
+      }
+    });
   }
+
+  openEditModal(offre: Offre): void {
+    this.editingOffre = offre;
+    this.editOffreTitre = offre.title;
+    this.editOffreDesc = offre.description;
+    this.editOffreDept = offre.dept;
+    this.editOffreNiveau = offre.niveauLabel;
+    this.editOffreTags = [...offre.tags];
+    this.newOffreTitre = offre.title;
+    this.newOffreDesc = offre.description;
+    this.newOffreDept = offre.dept;
+    this.newOffreNiveau = offre.niveauLabel;
+    this.newOffreContrat = offre.contrat;
+    this.newOffreType = offre.offreType;
+    this.newOffreTags = [...offre.tags];
+    this.tagInputValue = '';
+    this.showModal = true;
+  }
+
+  closeEditModal(): void {
+    this.closeModal();
+  }
+
+  saveEditOffre(): void {
+    if (!this.editingOffre) return;
+    if (!this.newOffreTitre.trim() || !this.newOffreDesc.trim()) {
+      this.showToast('Veuillez renseigner le titre et la description');
+      return;
+    }
+    if (!this.newOffreTags.length) {
+      this.showToast('Veuillez ajouter au moins une skill');
+      return;
+    }
+
+    this.savingOffre = true;
+    this.offreEmploiService.updateOffre(this.editingOffre.id, this.buildOffrePayload(this.editingOffre.statut)).subscribe({
+      next: (updated) => {
+        this.savingOffre = false;
+        this.closeEditModal();
+        this.loadOffres();
+        this.showToast('Offre mise a jour');
+      },
+      error: () => {
+        this.savingOffre = false;
+        this.showToast("Erreur lors de la mise a jour de l'offre");
+      }
+    });
+  }
+
+  cloturerOffre(offre: Offre): void {
+    this.offreEmploiService.cloturerOffre(offre.id).subscribe({
+      next: () => {
+        this.loadOffres();
+        if (this.showKanbanView) {
+          this.showKanbanView = false;
+        }
+        this.showToast('Offre cloturee avec succes');
+      },
+      error: () => {
+        this.showToast("Erreur lors de la cloture de l'offre");
+      }
+    });
+  }
+
+  
 
   // ── Toast ────────────────────────────────────────────────────────────────────
   showToast(msg: string): void {
@@ -526,6 +626,82 @@ export class EspaceAdminComponent implements OnInit {
     if (!d) return '';
     const dt = new Date(d);
     return dt.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  offreStatusLabel(statut: OffreStatut): string {
+    if (statut === 'FERMEE') return 'Cloturee';
+    if (statut === 'BROUILLON') return 'Brouillon';
+    return 'Ouverte';
+  }
+
+  offreStatusClass(statut: OffreStatut): string {
+    if (statut === 'FERMEE') return 'closed';
+    if (statut === 'BROUILLON') return 'draft';
+    return 'open';
+  }
+
+  private buildOffrePayload(statut: OffreStatut = 'OUVERTE'): OffreEmploi {
+    return {
+      titre: this.newOffreTitre.trim(),
+      description: this.newOffreDesc.trim(),
+      type: this.newOffreType,
+      candidatures: this.editingOffre?.candidatures ?? 0,
+      departement: this.newOffreDept,
+      niveau: this.newOffreNiveau,
+      contrat: this.newOffreContrat,
+      skills: [...this.newOffreTags],
+      statut
+    };
+  }
+
+  private mapApiOffreToUi(offre: OffreEmploi): Offre {
+    const niveau = this.mapNiveauValue(offre.niveau);
+
+    return {
+      id: offre.id ?? Date.now(),
+      type: this.inferCardType(offre.departement, offre.type),
+      title: offre.titre,
+      dept: offre.departement || 'General',
+      niveau,
+      niveauLabel: offre.niveau || 'Non precise',
+      date: this.formatRelativeDate(offre.datePublication),
+      candidatures: offre.candidatures ?? 0,
+      tags: offre.skills || [],
+      description: offre.description || '',
+      contrat: offre.contrat || 'Non precise',
+      offreType: (offre.type as OffreType) || 'EXTERNE',
+      statut: (offre.statut as OffreStatut) || 'OUVERTE'
+    };
+  }
+
+  private inferCardType(departement?: string, offreType?: OffreType): 'tech' | 'design' | 'data' {
+    const normalizedDept = (departement || '').toLowerCase();
+    if (normalizedDept.includes('design')) return 'design';
+    if (normalizedDept.includes('data') || normalizedDept.includes('ia')) return 'data';
+    if (offreType === 'INTERNE') return 'design';
+    return 'tech';
+  }
+
+  private mapNiveauValue(niveau?: string): 'junior' | 'mid' | 'senior' {
+    const normalized = (niveau || '').toLowerCase();
+    if (normalized.includes('junior')) return 'junior';
+    if (normalized.includes('mid')) return 'mid';
+    return 'senior';
+  }
+
+  private formatRelativeDate(datePublication?: string): string {
+    if (!datePublication) return 'a l instant';
+
+    const now = new Date();
+    const published = new Date(datePublication);
+    const diffMs = now.getTime() - published.getTime();
+    const diffHours = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60)));
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffHours < 1) return "a l'instant";
+    if (diffHours < 24) return `il y a ${diffHours}h`;
+    if (diffDays < 7) return `il y a ${diffDays}j`;
+    return this.formatDate(datePublication);
   }
 
   private applyAdminFromSession(user: { id: number; nom: string; prenom: string; email: string; telephone?: string }): void {

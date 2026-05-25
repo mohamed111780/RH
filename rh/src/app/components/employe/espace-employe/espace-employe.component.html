@@ -566,13 +566,15 @@
       </ng-container>
       <ng-container *ngIf="showOffreModal!.postule">
         <div style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);border-radius:10px;font-size:13px;color:var(--accent3);">
-          <i class="fas fa-check-circle"></i> Candidature déjà envoyée
+          <i class="fas fa-check-circle"></i> Candidature deja envoyee
         </div>
       </ng-container>
       <button class="btn-secondary" (click)="showOffreModal = null">Fermer</button>
     </div>
   </div>
 </div>
+
+
 
 <!-- Demande inscription formation -->
 <div class="demande-formation-overlay" *ngIf="showDemandeFormationModal" (click)="closeDemandeFormationModal()">

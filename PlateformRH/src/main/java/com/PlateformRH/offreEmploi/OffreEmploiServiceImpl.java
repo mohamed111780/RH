@@ -4,7 +4,11 @@ package com.PlateformRH.offreEmploi;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
@@ -13,13 +17,21 @@ public class OffreEmploiServiceImpl implements OffreEmploiService {
     private final OffreEmploiRepository offreRepository;
 
     @Override
-    public void createOffre(OffreEmploi offre) {
+    public OffreEmploiDTO createOffre(OffreEmploiDTO dto) {
+        OffreEmploi offre = new OffreEmploi();
+        applyDtoToEntity(dto, offre);
 
-        if (offre.getStatut() == null) {
+        if (offre.getStatut() == null || offre.getStatut().isBlank()) {
             offre.setStatut("OUVERTE");
         }
+        if (offre.getCandidatures() == null) {
+            offre.setCandidatures(0);
+        }
+        if (offre.getDatePublication() == null) {
+            offre.setDatePublication(LocalDateTime.now());
+        }
 
-        offreRepository.save(offre);
+        return mapToDto(offreRepository.save(offre));
     }
 
     @Override
@@ -59,7 +71,15 @@ public class OffreEmploiServiceImpl implements OffreEmploiService {
         o.setTitre(dto.getTitre());
         o.setDescription(dto.getDescription());
         o.setType(dto.getType());
+        o.setCandidatures(dto.getCandidatures() != null ? dto.getCandidatures() : o.getCandidatures());
+        o.setDepartement(dto.getDepartement());
+        o.setNiveau(dto.getNiveau());
+        o.setContrat(dto.getContrat());
+        o.setCompetences(joinSkills(dto.getSkills()));
         o.setStatut(dto.getStatut());
+        if (dto.getDatePublication() != null) {
+            o.setDatePublication(dto.getDatePublication());
+        }
 
         return mapToDto(offreRepository.save(o));
     }
@@ -84,8 +104,49 @@ public class OffreEmploiServiceImpl implements OffreEmploiService {
         dto.setTitre(o.getTitre());
         dto.setDescription(o.getDescription());
         dto.setType(o.getType());
+        dto.setCandidatures(o.getCandidatures());
+        dto.setDepartement(o.getDepartement());
+        dto.setNiveau(o.getNiveau());
+        dto.setContrat(o.getContrat());
+        dto.setSkills(splitSkills(o.getCompetences()));
         dto.setStatut(o.getStatut());
+        dto.setDatePublication(o.getDatePublication());
 
         return dto;
+    }
+
+    private void applyDtoToEntity(OffreEmploiDTO dto, OffreEmploi offre) {
+        offre.setTitre(dto.getTitre());
+        offre.setDescription(dto.getDescription());
+        offre.setType(dto.getType());
+        offre.setCandidatures(dto.getCandidatures());
+        offre.setDepartement(dto.getDepartement());
+        offre.setNiveau(dto.getNiveau());
+        offre.setContrat(dto.getContrat());
+        offre.setCompetences(joinSkills(dto.getSkills()));
+        offre.setStatut(dto.getStatut());
+        offre.setDatePublication(dto.getDatePublication());
+    }
+
+    private List<String> splitSkills(String competences) {
+        if (competences == null || competences.isBlank()) {
+            return new ArrayList<>();
+        }
+
+        return Arrays.stream(competences.split(","))
+                .map(String::trim)
+                .filter(skill -> !skill.isBlank())
+                .collect(Collectors.toCollection(ArrayList::new));
+    }
+
+    private String joinSkills(List<String> skills) {
+        if (skills == null || skills.isEmpty()) {
+            return "";
+        }
+
+        return skills.stream()
+                .map(String::trim)
+                .filter(skill -> !skill.isBlank())
+                .collect(Collectors.joining(","));
     }
 }
