@@ -1,106 +1,134 @@
-<div class="login-wrapper">
+<div class="login-page-outer">
+  <main class="login-page">
 
-  <!-- LEFT -->
-  <div class="left-panel">
-    <div class="left-content">
-
+    <!-- ═══ Panneau gauche ═══ -->
+    <section class="story-panel" aria-label="ItVision">
       <div class="brand">
-        <span class="brand-name">Plateforme RH</span>
+        <span class="brand-logo" aria-hidden="true">
+          <svg width="22" height="22" fill="none" viewBox="0 0 32 32">
+            <path d="M6 26L16 6l10 20" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M9.5 19h13" stroke="#f47c20" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="brand-name">It<span>Vision</span></span>
       </div>
 
-      <div class="left-text">
-        <h2>Gestion RH Moderne</h2>
-        <p>Accédez à votre espace sécurisé</p>
+      <div class="hero-copy">
+        <span class="eyebrow">Portail SIRH souverain</span>
+        <h1>Orchestration stratégique du capital humain</h1>
+        <p>Gouvernance des référentiels collaborateurs, arbitrage des workflows RH et pilotage décisionnel des talents.</p>
       </div>
 
-    </div>
-  </div>
+      <div class="orbit-scene" aria-hidden="true">
+        <div class="orbit-ring ring-one"></div>
+        <div class="orbit-ring ring-two"></div>
+        <div class="orbit-ring ring-three"></div>
 
-  <!-- RIGHT -->
-  <div class="right-panel">
-    <div class="form-container">
+        <div class="hub-card">
+          <div class="hub-icon">RH</div>
+          <strong>Workflow RH</strong>
+          <span>Connecté</span>
+        </div>
 
-      <h1>Connexion</h1>
+        <div class="module-card candidate-card">
+          <span class="module-icon">CV</span>
+          <div>
+            <strong>Recrutement</strong>
+            <span>Matching candidats</span>
+          </div>
+        </div>
 
-      <!-- ERROR -->
-      <div class="alert alert-error" *ngIf="errorMessage">
-        {{ errorMessage }}
+        <div class="module-card leave-card">
+          <span class="module-icon">25j</span>
+          <div>
+            <strong>Congés</strong>
+            <span>Validation rapide</span>
+          </div>
+        </div>
+
+        <div class="module-card training-card">
+          <span class="module-icon">AI</span>
+          <div>
+            <strong>Formations</strong>
+            <span>Parcours suivis</span>
+          </div>
+        </div>
+
+        <span class="pulse-dot dot-one"></span>
+        <span class="pulse-dot dot-two"></span>
+        <span class="pulse-dot dot-three"></span>
+        <span class="pulse-dot dot-four"></span>
       </div>
+    </section>
 
-      <!-- SUCCESS -->
-      <div class="alert alert-success" *ngIf="successMessage">
-        {{ successMessage }}
-      </div>
+    <!-- ═══ Panneau droit ═══ -->
+    <section class="form-panel">
+      <div class="form-container">
+        <div class="form-header">
+          <span class="form-kicker">Bienvenue</span>
+          <h2>Connexion</h2>
+          <p>Accédez à votre tableau de bord.</p>
+        </div>
+        <div class="form-divider"></div>
 
-      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+        <div class="alert alert-error" *ngIf="errorMessage">
+          {{ errorMessage }}
+        </div>
+        <div class="alert alert-success" *ngIf="successMessage">
+          {{ successMessage }}
+        </div>
 
-        <!-- EMAIL -->
-        <div class="form-group">
-          <label class="form-label">Email</label>
-          <div class="input-wrap">
-            <input type="email" formControlName="email" placeholder="email@example.com" />
-            <span class="input-icon">✉</span>
+        <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <div class="input-wrap">
+              <input type="email" formControlName="email" placeholder="email@example.com" autocomplete="email" />
+              <span class="input-icon">&#64;</span>
+            </div>
+            <small class="error-msg" *ngIf="isInvalid('email') && getError('email','required')">Email requis</small>
+            <small class="error-msg" *ngIf="isInvalid('email') && getError('email','email')">Email invalide</small>
           </div>
 
-          <small class="error-msg" *ngIf="isInvalid('email') && getError('email','required')">
-            Email requis
-          </small>
-
-          <small class="error-msg" *ngIf="isInvalid('email') && getError('email','email')">
-            Email invalide
-          </small>
-        </div>
-
-        <!-- PASSWORD -->
-        <div class="form-group">
-          <label class="form-label">Mot de passe</label>
-
-          <div class="input-wrap password-wrap">
-            <input
-              [type]="showPassword ? 'text' : 'password'"
-              formControlName="password"
-              placeholder="••••••••"
-            />
-            <span class="input-icon">🔒</span>
-            <button type="button" class="toggle-pass" (click)="togglePassword()">
-              {{ showPassword ? '👁' : '👁‍🗨' }}
-            </button>
+          <div class="form-group">
+            <label class="form-label">Mot de passe</label>
+            <div class="input-wrap">
+              <input
+                [type]="showPassword ? 'text' : 'password'"
+                formControlName="password"
+                placeholder="••••••••"
+                autocomplete="current-password"
+              />
+              <span class="input-icon">#</span>
+              <button
+                type="button"
+                class="toggle-pass"
+                (click)="togglePassword()"
+                [attr.aria-label]="showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+              >
+                {{ showPassword ? 'Masquer' : 'Voir' }}
+              </button>
+            </div>
+            <small class="error-msg" *ngIf="isInvalid('password') && getError('password','required')">Mot de passe requis</small>
+            <small class="error-msg" *ngIf="isInvalid('password') && getError('password','minlength')">Min 6 caractères</small>
           </div>
 
-          <small class="error-msg" *ngIf="isInvalid('password') && getError('password','required')">
-            Mot de passe requis
-          </small>
+          <div class="form-options">
+            <label class="remember">
+              <input type="checkbox" formControlName="rememberMe" />
+              Se souvenir de moi
+            </label>
+            <a href="#" (click)="onForgotPassword($event)">Mot de passe oublié ?</a>
+          </div>
 
-          <small class="error-msg" *ngIf="isInvalid('password') && getError('password','minlength')">
-            Min 6 caractères
-          </small>
-        </div>
+          <button class="submit-btn" [class.loading]="isLoading" type="submit" [disabled]="isLoading">
+            <span *ngIf="!isLoading">Se connecter</span>
+            <span *ngIf="isLoading">Connexion en cours…</span>
+          </button>
+        </form>
 
-        <!-- REMEMBER -->
-        <div class="form-options">
-          <label>
-            <input type="checkbox" formControlName="rememberMe" />
-            Remember me
-          </label>
 
-          <a href="#" (click)="onForgotPassword($event)">Mot de passe oublié ?</a>
-        </div>
+      </div>
+    </section>
 
-        <!-- BUTTON -->
-        <button type="submit" [disabled]="isLoading">
-          <span *ngIf="!isLoading">Se connecter</span>
-          <span *ngIf="isLoading">Connexion...</span>
-        </button>
-
-      </form>
-
-      <!-- REGISTER -->
-      <p>
-        Pas de compte ?
-        <a href="#" (click)="goToRegister($event)">Créer un compte</a>
-      </p>
-
-    </div>
-  </div>
-
+  </main>
 </div>

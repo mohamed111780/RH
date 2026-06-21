@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -12,6 +12,9 @@ import { AuthService } from '../../services/auth/auth.service';
   styleUrls: ['./login.component.css']
 })
 export class LoginComponent implements OnInit {
+
+  @Input() embedded = false;
+  @Output() forgotPasswordRequested = new EventEmitter<void>();
 
   loginForm!: FormGroup;
   isLoading = false;
@@ -117,6 +120,10 @@ export class LoginComponent implements OnInit {
 
   onForgotPassword(event: Event): void {
     event.preventDefault();
+    if (this.embedded) {
+      this.forgotPasswordRequested.emit();
+      return;
+    }
     this.router.navigate(['/reset']);
   }
 

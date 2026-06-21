@@ -1,24 +1,33 @@
 import { Component, OnInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { CAREER_OFFERS, CareerOffer } from './career-offers';
+import { LoginComponent } from '../login/login.component';
+import { ResetPasswordComponent } from '../reset-password/reset-password.component';
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, LoginComponent, ResetPasswordComponent],
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.css']
 })
 export class HomeComponent implements OnInit {
 
-  constructor(private sanitizer: DomSanitizer) {}
+  constructor(
+    private sanitizer: DomSanitizer,
+    private route: ActivatedRoute,
+    private router: Router
+  ) {}
 
   scrolled = false;
   menuOpen = false;
   annuel = false;
   activeSol = 0;
   openFaq: number | null = null;
+  loginModalOpen = false;
+  authModalMode: 'login' | 'reset' = 'login';
 
   // Helper to sanitize SVG HTML
   sanitizeSvg(svg: string): SafeHtml {
@@ -28,9 +37,29 @@ export class HomeComponent implements OnInit {
   @HostListener('window:scroll')
   onScroll() { this.scrolled = window.scrollY > 40; }
 
+  @HostListener('window:keydown.escape')
+  onEscape() { this.closeLoginModal(); }
+
   toggleMenu() { this.menuOpen = !this.menuOpen; }
   openDemo()   { console.log('Open demo modal'); }
   toggleFaq(i: number) { this.openFaq = this.openFaq === i ? null : i; }
+  openLoginModal(event?: Event) {
+    event?.preventDefault();
+    this.authModalMode = 'login';
+    this.loginModalOpen = true;
+    this.menuOpen = false;
+  }
+  openResetModal(): void {
+    this.authModalMode = 'reset';
+    this.loginModalOpen = true;
+    this.menuOpen = false;
+  }
+  closeLoginModal() {
+    this.loginModalOpen = false;
+    if (this.router.url === '/login' || this.router.url === '/reset') {
+      this.router.navigate(['/home']);
+    }
+  }
 
   clients = ['BIAT', 'Sofrecom', 'Vermeg', 'Poulina', 'Ooredoo'];
 
@@ -117,6 +146,8 @@ export class HomeComponent implements OnInit {
     { val: '3×', lbl: 'Plus rapide qu\'Excel' }
   ];
 
+  careerOffers: CareerOffer[] = CAREER_OFFERS;
+
   plans = [
     {
       name: 'Starter', priceMonth: '490', priceYear: '392', featured: false, badge: '',
@@ -162,5 +193,14 @@ export class HomeComponent implements OnInit {
   mockKpis = [{ color: '#f47c20' }, { color: '#2563eb' }, { color: '#10b981' }, { color: '#8b5cf6' }];
   mockBars = [{ h: 40, active: false }, { h: 60, active: false }, { h: 45, active: false }, { h: 80, active: true }, { h: 55, active: false }, { h: 70, active: false }, { h: 50, active: false }];
 
-  ngOnInit(): void {}
+  ngOnInit(): void {
+    this.route.data.subscribe((data) => {
+      const modal = data['authModal'];
+      if (modal === 'login' || modal === 'reset') {
+        this.authModalMode = modal;
+        this.loginModalOpen = true;
+        this.menuOpen = false;
+      }
+    });
+  }
 }

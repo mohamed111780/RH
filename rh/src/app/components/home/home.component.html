@@ -1,3 +1,4 @@
+<div class="home-shell" [class.login-blurred]="loginModalOpen">
 <!-- TOPBAR -->
 <div class="topbar">
   <div class="tb-left">
@@ -15,7 +16,7 @@
     <span class="tb-sep"></span>
     <a href="#">EN</a>
     <span class="tb-sep"></span>
-    <a routerLink="/login">Connexion</a>
+    <a href="#" (click)="openLoginModal($event)">Connexion</a>
   </div>
 </div>
 
@@ -33,17 +34,14 @@
 
   <ul class="nav-links" [class.open]="menuOpen">
     <li><a href="#" class="nav-link active">Accueil</a></li>
-    <li><a href="#solutions" class="nav-link">Solutions</a></li>
+    <li><a href="#about" class="nav-link">À propos</a></li>
+    <li><a href="#careers" class="nav-link">Carrières</a></li>
     <li><a href="#features" class="nav-link">Fonctionnalités</a></li>
     <li><a href="#tarifs" class="nav-link">Tarifs</a></li>
-    <li><a href="#temoignages" class="nav-link">Clients</a></li>
     <li><a href="#contact" class="nav-link">Contact</a></li>
   </ul>
 
-  <div class="nav-cta">
-    <button class="btn-ghost" routerLink="/demo">Demander une démo</button>
-    <button class="btn-primary-sm" routerLink="/register">Essai gratuit</button>
-  </div>
+
 
   <button class="nav-toggle" (click)="toggleMenu()">
     <span [class.open]="menuOpen"></span>
@@ -81,6 +79,32 @@
         <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="rgba(255,255,255,0.15)"/><path d="M10 8l6 4-6 4V8z" fill="white"/></svg>
         Voir la démo
       </button>
+    </div>
+
+    <div class="hero-media">
+      <div class="media-card media-card-reunion">
+        <div class="media-label">Réunion équipe</div>
+        <div class="media-frame frame-top"></div>
+        <div class="media-frame frame-bottom"></div>
+      </div>
+      <div class="media-card media-card-laptop">
+        <div class="media-label">Travail hybride</div>
+        <div class="media-screen">
+          <div class="screen-top"></div>
+          <div class="screen-body">
+            <div class="screen-graph"></div>
+            <div class="screen-footer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="media-card media-card-video">
+        <div class="media-label">Vidéo métier</div>
+        <div class="media-play">
+          <div class="play-circle">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M10 8l6 4-6 4V8z"/></svg>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="hero-trust">
@@ -185,6 +209,74 @@
     <span>{{ t.label }}</span>
   </div>
 </div>
+
+<section class="section about-section" id="about">
+  <div class="about-grid">
+    <div class="about-copy">
+      <div class="sec-label">À propos</div>
+      <h2 class="sec-title">La gestion RH repensée pour les équipes modernes</h2>
+      <p class="sec-sub max-600">Nous aidons les directions RH à piloter le recrutement, les congés et la formation avec une interface sûre et fluide, mêlant une expérience sombre premium et des éclats de couleurs dynamiques.</p>
+      <div class="about-highlights">
+        <div class="highlight-card highlight-orange">
+          <strong>Vision claire</strong>
+          <p>Des tableaux de bord métiers qui donnent une image immédiate de l’activité RH.</p>
+        </div>
+        <div class="highlight-card highlight-blue">
+          <strong>Collaboration fluide</strong>
+          <p>Travaillez avec les managers et les talents en toute transparence.</p>
+        </div>
+        <div class="highlight-card highlight-violet">
+          <strong>Montée en compétences</strong>
+          <p>Un suivi simple des objectifs, compétences et formations.</p>
+        </div>
+      </div>
+    </div>
+    <div class="about-visual">
+      <div class="about-bubble bubble-one"></div>
+      <div class="about-bubble bubble-two"></div>
+      <div class="about-card big-card">
+        <div class="about-card-heading">Pourquoi ItVision ?</div>
+        <p>Conçu pour les organisations qui veulent un HRIS moderne, visuel et facile à déployer, avec des workflows intelligents et un pilotage temps réel.</p>
+      </div>
+      <div class="about-card small-card">
+        <div class="about-card-heading">Sécurité & support</div>
+        <p>Chiffrement des données, authentification, et service disponible 7j/7 pour accompagner vos équipes.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section careers-section" id="careers">
+  <div class="sec-head text-center">
+    <div class="sec-label">Carrières</div>
+    <h2 class="sec-title">Des offres externes attractives avec un design premium</h2>
+    <p class="sec-sub max-600">Découvrez nos opportunités ouvertes, avec une présentation claire de la mission, du niveau, des compétences et un accès direct aux détails et au formulaire de candidature.</p>
+  </div>
+  <div class="careers-grid">
+    <div class="career-card" *ngFor="let offer of careerOffers">
+      <div class="career-card-head">
+        <div>
+          <span class="career-company">{{ offer.company }}</span>
+          <h3>{{ offer.titre }}</h3>
+        </div>
+        <span class="career-chip">{{ offer.type }}</span>
+      </div>
+      <p class="career-desc">{{ offer.description }}</p>
+      <div class="career-info-row">
+        <span>{{ offer.niveau }}</span>
+        <span>{{ offer.contrat }}</span>
+        <span>{{ offer.location }}</span>
+      </div>
+      <div class="career-tags">
+        <span class="career-tag" *ngFor="let skill of offer.skills">{{ skill }}</span>
+      </div>
+      <div class="career-footer">
+        <span class="career-applications">{{ offer.candidatures }} candidatures</span>
+        <button class="btn-secondary" [routerLink]="['/offre', offer.id]">Voir plus</button>
+      </div>
+    </div>
+  </div>
+</section>
 
 <!-- FEATURES -->
 <section class="section features-section" id="features">
@@ -374,10 +466,7 @@
     <div class="sec-label light">Passez à l'action</div>
     <h2 class="cta-title">Prêt à moderniser votre<br>gestion RH ?</h2>
     <p class="cta-sub">Rejoignez plus de 500 entreprises qui ont déjà transformé leurs processus RH avec ItVision.</p>
-    <div class="cta-actions">
-      <button class="btn-hero-orange" routerLink="/register">Démarrer gratuitement</button>
-      <button class="btn-hero-ghost" routerLink="/demo">Planifier une démo</button>
-    </div>
+
   </div>
 </section>
 
@@ -416,3 +505,20 @@
     <span>Conçu et développé en Tunisie 🇹🇳</span>
   </div>
 </footer>
+</div>
+
+<div class="login-modal-backdrop" *ngIf="loginModalOpen" (click)="closeLoginModal()">
+  <div class="login-modal-card" role="dialog" aria-modal="true" [attr.aria-label]="authModalMode === 'login' ? 'Connexion' : 'Réinitialisation du mot de passe'" (click)="$event.stopPropagation()">
+    <button class="login-modal-close" type="button" aria-label="Fermer" (click)="closeLoginModal()">×</button>
+    <app-login
+      *ngIf="authModalMode === 'login'"
+      [embedded]="true"
+      (forgotPasswordRequested)="openResetModal()">
+    </app-login>
+    <app-reset-password
+      *ngIf="authModalMode === 'reset'"
+      [embedded]="true"
+      (loginRequested)="openLoginModal()">
+    </app-reset-password>
+  </div>
+</div>

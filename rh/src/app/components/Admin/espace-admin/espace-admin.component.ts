@@ -129,6 +129,7 @@ export class EspaceAdminComponent implements OnInit {
   loadingEmployees = false;
 
   // ── UI State ─────────────────────────────────────────────────────────────────
+  sidebarExpanded: boolean = false;
   showModal: boolean = false;
   showFormationModal: boolean = false;
   showKanbanView: boolean = false;
@@ -186,12 +187,12 @@ export class EspaceAdminComponent implements OnInit {
 
   // ── DATA ─────────────────────────────────────────────────────────────────────
   employees: Employee[] = [
-    { initials: 'SA', name: 'Sara Amrani',       role: 'Dev Full Stack',    dept: 'Ingénierie', status: 'active', color: 'rgba(108,99,255,0.2)',  textColor: 'var(--accent2)' },
+    { initials: 'SA', name: 'Sara Amrani',       role: 'Dev Full Stack',    dept: 'Ingénierie', status: 'active', color: 'rgba(232,68,33,0.18)',  textColor: 'var(--accent2)' },
     { initials: 'YB', name: 'Yassine Belkadi',   role: 'Data Scientist',    dept: 'IA',         status: 'active', color: 'rgba(244,63,94,0.15)',  textColor: 'var(--accent5)' },
     { initials: 'NM', name: 'Nadia Maaloul',     role: 'UX Designer',       dept: 'Design',     status: 'remote', color: 'rgba(34,211,238,0.12)', textColor: 'var(--accent6)' },
     { initials: 'KH', name: 'Karim Hamdi',       role: 'Product Manager',   dept: 'Produit',    status: 'leave',  color: 'rgba(74,222,128,0.1)',  textColor: 'var(--accent3)' },
     { initials: 'MB', name: 'Mohamed Bensalem',  role: 'DevOps Engineer',   dept: 'Ingénierie', status: 'active', color: 'rgba(245,158,11,0.12)', textColor: 'var(--accent4)' },
-    { initials: 'LT', name: 'Lina Trabelsi',     role: 'Marketing Lead',    dept: 'Marketing',  status: 'active', color: 'rgba(108,99,255,0.15)', textColor: 'var(--accent2)' },
+    { initials: 'LT', name: 'Lina Trabelsi',     role: 'Marketing Lead',    dept: 'Marketing',  status: 'active', color: 'rgba(232,68,33,0.14)', textColor: 'var(--accent2)' },
     { initials: 'AO', name: 'Amine Oueslati',    role: 'Backend Engineer',  dept: 'Ingénierie', status: 'active', color: 'rgba(244,63,94,0.12)',  textColor: 'var(--accent5)' },
     { initials: 'RB', name: 'Rania Ben Slama',   role: 'QA Engineer',       dept: 'Ingénierie', status: 'active', color: 'rgba(34,211,238,0.12)', textColor: 'var(--accent6)' },
     { initials: 'HM', name: 'Hichem Mansouri',   role: 'Finance Analyst',   dept: 'Finance',    status: 'active', color: 'rgba(74,222,128,0.1)',  textColor: 'var(--accent3)' },
@@ -235,6 +236,10 @@ export class EspaceAdminComponent implements OnInit {
     if (page === 'offres') {
       this.loadOffres();
     }
+  }
+
+  toggleSidebar(): void {
+    this.sidebarExpanded = !this.sidebarExpanded;
   }
 
   logoutAdmin(): void {
@@ -807,14 +812,17 @@ export class EspaceAdminComponent implements OnInit {
       tc: palette.text,
       email: candidature.email,
       tags,
-      score: this.computeScore(tags, offreTags),
+      score: candidature.scoreMatching ?? this.computeScore(tags, offreTags),
       statut: this.normalizeCandidatureStatus(candidature.statut)
     };
   }
 
   private extractTagsFromCandidature(candidature: BackendCandidature): string[] {
-    const raw = `${candidature.poste || ''},${candidature.departement || ''}`;
+    if (candidature.competenceTags?.length) {
+      return candidature.competenceTags.map((item) => item.trim()).filter((item) => !!item);
+    }
 
+    const raw = `${candidature.poste || ''},${candidature.departement || ''}`;
     return raw
       .split(',')
       .map((item) => item.trim())
@@ -838,7 +846,7 @@ export class EspaceAdminComponent implements OnInit {
 
   private colorFromName(name: string): { bg: string; text: string } {
     const palettes = [
-      { bg: 'rgba(108,99,255,0.2)', text: 'var(--accent2)' },
+      { bg: 'rgba(232,68,33,0.18)', text: 'var(--accent2)' },
       { bg: 'rgba(34,211,238,0.16)', text: 'var(--accent6)' },
       { bg: 'rgba(74,222,128,0.14)', text: 'var(--accent3)' },
       { bg: 'rgba(245,158,11,0.14)', text: 'var(--accent4)' },
@@ -944,7 +952,7 @@ export class EspaceAdminComponent implements OnInit {
   private getDeptStyle(dept: string): { bg: string; color: string } {
     const normalizedDept = (dept || '').toLowerCase();
     if (normalizedDept.includes('ingen') || normalizedDept.includes('tech')) {
-      return { bg: 'rgba(108,99,255,0.2)', color: 'var(--accent2)' };
+      return { bg: 'rgba(232,68,33,0.18)', color: 'var(--accent2)' };
     }
     if (normalizedDept.includes('design')) {
       return { bg: 'rgba(244,63,94,0.15)', color: 'var(--accent5)' };

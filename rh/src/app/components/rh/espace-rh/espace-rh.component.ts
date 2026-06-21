@@ -4,7 +4,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
-import { DemandeConge, StatutDemande, TYPE_LABELS } from '../../../models/demande-conge';
+import { DemandeConge, StatutDemande, TYPE_LABELS, CreateDemandeConge, TypeConge } from '../../../models/demande-conge';
 import { CreateEmploye, Employe } from '../../../models/employe';
 import { Formation as FormationApi } from '../../../models/formation';
 import { OffreEmploi, OffreStatut, OffreType } from '../../../models/offre-emploi';
@@ -136,6 +136,9 @@ export class EspaceRhComponent implements OnInit {
   toastVisible: boolean = false;
   private toastTimer: any;
 
+  // Profil photo (aperçu local)
+  rhPhotoUrl: string | null = null;
+
   // Modal offre
   modalOffreOpen: boolean = false;
   newOffreTitre: string = '';
@@ -154,6 +157,11 @@ export class EspaceRhComponent implements OnInit {
   loadingEmployees: boolean = false;
   savingEmployee: boolean = false;
   deletingEmployeeId: number | null = null;
+
+  // Confirm delete modal state
+  showConfirmDelete: boolean = false;
+  confirmDeleteEmployee: Employee | null = null;
+
   employeeForm: EmployeeForm = this.getEmptyEmployeeForm();
 
   // Modal congé
@@ -174,13 +182,29 @@ export class EspaceRhComponent implements OnInit {
   // Onglet formations
   selectedFormationTab: 'all' | 'tech' | 'soft' | 'lead' = 'all';
   loadingFormations: boolean = false;
+
+  // Formation modal state
+  modalFormationOpen: boolean = false;
+  newFormation: FormationApi = { titre: '', description: '', dateDebut: '', dateFin: '', typeFormation: 'EN_LIGNE', capacite: 1 };
+  creatingFormation: boolean = false;
+  editingFormationId: number | null = null;
   loadingOffres: boolean = false;
   savingOffre: boolean = false;
   loadingKanban: boolean = false;
 
   // Calendrier mois/année
-  calMonth: number = 4; // Mai = index 4
-  calYear: number = 2025;
+  calMonth: number = new Date().getMonth();
+  calYear: number = new Date().getFullYear();
+
+  // Calendar interaction state
+  selectedCalendarDate: string | null = null; // ISO yyyy-mm-dd
+  calendarDayRequests: DemandeConge[] = [];
+  calendarDayModalOpen: boolean = false;
+  showCreateDayRequestForm: boolean = false;
+  creatingDayRequest: boolean = false;
+
+  // payload for create request from calendar
+  newDayRequest: { employeeId?: number; dateDebut: string; dateFin: string; type: TypeConge } = { employeeId: undefined, dateDebut: '', dateFin: '', type: 'PAYE' };
 
   // ───────────────────────── FAKE DATA ─────────────────────────
 
@@ -275,23 +299,157 @@ export class EspaceRhComponent implements OnInit {
 
   get currentKanbanData(): KanbanData | null { return this.kanbanData; }
 
-  get calendarDays(): { day: number | null; cls: string }[] {
-    const days: { day: number | null; cls: string }[] = [];
+  // Formation modal actions
+  openModalFormation() {
+    this.modalFormationOpen = true;
+    this.newFormation = { titre: '', description: '', dateDebut: '', dateFin: '', typeFormation: 'EN_LIGNE', capacite: 1 };
+  }
+
+  closeModalFormation() {
+    this.modalFormationOpen = false;
+  }
+
+  createFormation() {
+    if (this.creatingFormation) return;
+    // basic validation
+    if (!this.newFormation.titre || !this.newFormation.dateDebut) {
+      this.showToast('Veuillez renseigner au moins le titre et la date de début.');
+      return;
+    }
+
+    this.creatingFormation = true;
+
+    // If editing an existing formation, call update
+    if (this.editingFormationId) {
+      this.formationService.updateFormation(this.editingFormationId, this.newFormation).subscribe({
+        next: (res) => {
+          this.showToast('Formation mise à jour avec succès');
+          if (typeof (this as any).loadFormations === 'function') (this as any).loadFormations();
+          this.modalFormationOpen = false;
+          this.creatingFormation = false;
+          this.editingFormationId = null;
+        },
+        error: (err: HttpErrorResponse) => {
+          const msg = err?.error?.message || 'Erreur lors de la mise à jour';
+          this.showToast(msg);
+          this.creatingFormation = false;
+        }
+      });
+      return;
+    }
+
+    // Otherwise create new
+    this.formationService.createFormation(this.newFormation).subscribe({
+      next: (res) => {
+        this.showToast('Formation créée avec succès');
+        if (typeof (this as any).loadFormations === 'function') (this as any).loadFormations();
+        this.modalFormationOpen = false;
+        this.creatingFormation = false;
+      },
+      error: (err: HttpErrorResponse) => {
+        const msg = err?.error?.message || 'Erreur lors de la création';
+        this.showToast(msg);
+        this.creatingFormation = false;
+      }
+    });
+  }
+
+  openEditFormation(f: any) {
+    // populate modal with selected formation values
+    this.editingFormationId = (f && (f.id || f.id === 0)) ? f.id : null;
+    // map fields if coming from different shape
+    this.newFormation = {
+      titre: f.titre || f.title || '',
+      description: f.description || f.desc || '',
+      dateDebut: f.dateDebut || f.dateDebut || f.start || '',
+      dateFin: f.dateFin || f.dateFin || f.end || '',
+      typeFormation: (f.typeFormation as any) || 'EN_LIGNE',
+      capacite: (f.capacite as any) || (f.enrolled as any) || 1
+    };
+    this.modalFormationOpen = true;
+  }
+
+  deleteFormation(f: any) {
+    const id = f && (f.id || f.id === 0) ? f.id : null;
+    if (!id) {
+      // if no id, remove locally if possible
+      this.formations = this.formations.filter(fr => fr !== f);
+      this.showToast('Formation supprimée');
+      return;
+    }
+    if (!confirm('Confirmer la suppression de cette formation ?')) return;
+    this.formationService.deleteFormation(id).subscribe({
+      next: () => {
+        this.showToast('Formation supprimée');
+        if (typeof (this as any).loadFormations === 'function') (this as any).loadFormations();
+      },
+      error: (err: HttpErrorResponse) => {
+        const msg = err?.error?.message || 'Erreur lors de la suppression';
+        this.showToast(msg);
+      }
+    });
+  }
+
+  get calendarDays(): { day: number | null; cls: string; dateISO?: string; leaves?: (DemandeConge & { initials?: string; typeLabel?: string; statutLabel?: string })[] }[] {
+    const cells: { day: number | null; cls: string; dateISO?: string; leaves?: (DemandeConge & { initials?: string; typeLabel?: string; statutLabel?: string })[] }[] = [];
     const firstDay = new Date(this.calYear, this.calMonth, 1).getDay();
     const offset = firstDay === 0 ? 6 : firstDay - 1;
     const daysInMonth = new Date(this.calYear, this.calMonth + 1, 0).getDate();
-    const leaveDays = [5, 6, 7, 12, 13, 14, 19, 20];
-    const pendingDays = [25, 26];
-    const today = 23;
-    for (let i = 0; i < offset; i++) days.push({ day: null, cls: 'cal-day empty' });
-    for (let d = 1; d <= daysInMonth; d++) {
-      let cls = 'cal-day';
-      if (d === today) cls += ' today';
-      else if (leaveDays.includes(d)) cls += ' leave-day';
-      else if (pendingDays.includes(d)) cls += ' leave-day2';
-      days.push({ day: d, cls });
+
+    const todayDate = new Date();
+    const todayIso = todayDate.toISOString().slice(0, 10);
+
+    // helper to normalize various backend property namings
+    const normalize = (raw: any) => {
+      return {
+        debut: raw.debut || raw.Debut || raw.dateDebut || raw.dateDebut || raw.start || raw.debutDate,
+        fin: raw.fin || raw.Fin || raw.dateFin || raw.end || raw.finDate,
+        prenomEmploye: raw.prenomEmploye || raw.prenom || raw.PrenomEmploye || raw.prenomEmployee,
+        nomEmploye: raw.nomEmploye || raw.nom || raw.NomEmploye || raw.nomEmployee,
+        matriculeEmploye: raw.matriculeEmploye || raw.MatriculeEmploye || raw.matricule || raw.matriculeEmploye,
+        typeConge: raw.typeConge || raw.TypeConge || raw.type || raw.Type || raw.typeConge,
+        statutDemande: raw.statutDemande || raw.StatutDemande || raw.statut || raw.Statut || raw.statutDemande,
+        id: raw.id ?? raw.Id ?? raw.ID
+      } as DemandeConge;
+    };
+
+    // build map of leaves keyed by ISO date, and enrich each leave for display (initials, typeLabel)
+    const leavesByDate: Record<string, any[]> = {};
+    for (const raw of this.leaveRequests || []) {
+      try {
+        const r = normalize(raw as any);
+        const start = new Date(r.debut);
+        const end = new Date(r.fin);
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          const iso = d.toISOString().slice(0, 10);
+          const enriched = Object.assign({}, r, {
+            initials: this.getInitials(r.prenomEmploye, r.nomEmploye),
+            typeLabel: this.leaveTypeLabel((r as any).typeConge as any),
+            statutLabel: this.leaveStatusLabel((r as any).statutDemande as any),
+            // keep canonical keys used by template compatibility
+            typeConge: (r as any).typeConge,
+            statutDemande: (r as any).statutDemande
+          });
+          (leavesByDate[iso] = leavesByDate[iso] || []).push(enriched);
+        }
+      } catch (e) {
+        // ignore parse errors
+      }
     }
-    return days;
+
+    for (let i = 0; i < offset; i++) cells.push({ day: null, cls: 'cal-day empty' });
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(this.calYear, this.calMonth, d);
+      const iso = date.toISOString().slice(0, 10);
+      const leaves = leavesByDate[iso] || [];
+      let cls = 'cal-day';
+      if (iso === todayIso) cls += ' today';
+      if (leaves.length) cls += ' has-leaves';
+      cells.push({ day: d, cls, dateISO: iso, leaves });
+    }
+
+    return cells;
   }
 
   get deptOptions(): string[] {
@@ -378,6 +536,20 @@ export class EspaceRhComponent implements OnInit {
     this.toastVisible = true;
     if (this.toastTimer) clearTimeout(this.toastTimer);
     this.toastTimer = setTimeout(() => this.toastVisible = false, 3000);
+  }
+
+  // Photo de profil local — lit le fichier pour prévisualisation et affiche un toast.
+  onPhotoSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input || !input.files || !input.files[0]) return;
+    const file = input.files[0];
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.rhPhotoUrl = String(reader.result || null);
+      this.showToast('Photo de profil mise \u00e0 jour');
+    };
+    reader.readAsDataURL(file);
   }
 
   // ───────────────────────── OFFRES ─────────────────────────
@@ -638,6 +810,26 @@ export class EspaceRhComponent implements OnInit {
     });
   }
 
+  // Open confirm delete modal (styled green/yellow)
+  openConfirmDelete(employee: Employee): void {
+    this.confirmDeleteEmployee = employee;
+    this.showConfirmDelete = true;
+  }
+
+  cancelConfirmDelete(): void {
+    this.confirmDeleteEmployee = null;
+    this.showConfirmDelete = false;
+  }
+
+  confirmDelete(): void {
+    if (!this.confirmDeleteEmployee) return;
+    const emp = this.confirmDeleteEmployee;
+    this.showConfirmDelete = false;
+    // call existing delete flow (will set deletingEmployeeId and call backend)
+    this.deleteEmployee(emp);
+    this.confirmDeleteEmployee = null;
+  }
+
   deleteEmployee(employee: Employee): void {
     if (!employee.id) {
       return;
@@ -680,6 +872,82 @@ export class EspaceRhComponent implements OnInit {
     this.loadOffres();
   }
 
+  // Calendar navigation
+  prevMonth(): void {
+    if (this.calMonth === 0) {
+      this.calMonth = 11;
+      this.calYear -= 1;
+    } else {
+      this.calMonth -= 1;
+    }
+  }
+
+  nextMonth(): void {
+    if (this.calMonth === 11) {
+      this.calMonth = 0;
+      this.calYear += 1;
+    } else {
+      this.calMonth += 1;
+    }
+  }
+
+  goToToday(): void {
+    const now = new Date();
+    this.calMonth = now.getMonth();
+    this.calYear = now.getFullYear();
+  }
+
+  get calendarMonthLabel(): string {
+    const names = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+    return `${names[this.calMonth]} ${this.calYear}`;
+  }
+
+  onCalendarDayClick(cell: { day: number | null; dateISO?: string; leaves?: DemandeConge[] }): void {
+    if (!cell || !cell.dateISO) return;
+    this.selectedCalendarDate = cell.dateISO;
+    this.calendarDayRequests = cell.leaves || [];
+    this.calendarDayModalOpen = true;
+    this.showCreateDayRequestForm = false;
+
+    // prefill new request dates
+    this.newDayRequest.dateDebut = cell.dateISO;
+    this.newDayRequest.dateFin = cell.dateISO;
+    this.newDayRequest.employeeId = this.employees.length ? this.employees[0].id : undefined;
+  }
+
+  closeCalendarDayModal(): void {
+    this.calendarDayModalOpen = false;
+    this.selectedCalendarDate = null;
+    this.calendarDayRequests = [];
+    this.showCreateDayRequestForm = false;
+  }
+
+  // create a new demande from calendar form
+  submitNewDayRequest(): void {
+    if (!this.newDayRequest.employeeId || !this.newDayRequest.dateDebut || !this.newDayRequest.dateFin) {
+      this.showToast('Veuillez choisir un employé et définir une période');
+      return;
+    }
+    this.creatingDayRequest = true;
+    const payload: CreateDemandeConge = {
+      dateDebut: this.newDayRequest.dateDebut,
+      dateFin: this.newDayRequest.dateFin,
+      type: this.newDayRequest.type
+    };
+    this.demandeCongeService.createDemande(this.newDayRequest.employeeId, payload).subscribe({
+      next: () => {
+        this.creatingDayRequest = false;
+        this.showToast('Demande de congé créée');
+        this.closeCalendarDayModal();
+        this.loadLeaveRequests();
+      },
+      error: () => {
+        this.creatingDayRequest = false;
+        this.showToast('Erreur lors de la création');
+      }
+    });
+  }
+
   trackByIndex(index: number): number { return index; }
   trackById(index: number, item: any): any { return item.id ?? index; }
 
@@ -717,7 +985,7 @@ export class EspaceRhComponent implements OnInit {
     });
   }
 
-  private loadEmployees(): void {
+  loadEmployees(): void {
     this.loadingEmployees = true;
     this.employeService.getAllEmployes().subscribe({
       next: (employees) => {
@@ -743,6 +1011,51 @@ export class EspaceRhComponent implements OnInit {
         this.showToast('Impossible de charger les demandes de conge');
       }
     });
+  }
+
+  // Search input value for leave requests list
+  leaveSearch: string = '';
+
+  // Returns filtered leave requests based on search text
+  get filteredLeaveRequests(): DemandeConge[] {
+    const q = (this.leaveSearch || '').trim().toLowerCase();
+    if (!q) return this.leaveRequests;
+    return this.leaveRequests.filter((r) => {
+      const name = `${r.prenomEmploye || ''} ${r.nomEmploye || ''}`.trim().toLowerCase();
+      const matricule = (r.matriculeEmploye || '').toLowerCase();
+      const type = (r.typeConge || '').toString().toLowerCase();
+      const dates = `${this.formatDate(r.debut)} ${this.formatDate(r.fin)}`.toLowerCase();
+      return name.includes(q) || matricule.includes(q) || type.includes(q) || dates.includes(q);
+    });
+  }
+
+  // Called by template on ngModelChange — kept for compatibility with previous wiring
+  filterLeaveRequests(): void {
+    // nothing to do; getter filteredLeaveRequests reads leaveSearch
+  }
+
+  // Refresh button in requests card
+  refreshLeaveRequests(): void {
+    this.loadLeaveRequests();
+    this.showToast('Actualisation...');
+  }
+
+  // Compute avatar background color for a leave request
+  avatarBg(req: DemandeConge): string {
+    try {
+      const name = this.leaveEmployeeName(req);
+      return this.colorFromName(name).bg;
+    } catch (e) {
+      return 'rgba(58,90,82,0.08)';
+    }
+  }
+
+  // Open a small details modal for a single leave request
+  openLeaveDetails(req: DemandeConge): void {
+    this.calendarDayRequests = [req];
+    this.selectedCalendarDate = req.debut ? (req.debut.slice ? req.debut.slice(0,10) : this.toDateInputValue(req.debut)) : null;
+    this.calendarDayModalOpen = true;
+    this.showCreateDayRequestForm = false;
   }
 
   private loadFormations(): void {
@@ -882,12 +1195,16 @@ export class EspaceRhComponent implements OnInit {
       tc: palette.text,
       email: candidature.email,
       tags,
-      score: this.computeScore(tags, offreTags),
+      score: candidature.scoreMatching ?? this.computeScore(tags, offreTags),
       statut: this.normalizeCandidatureStatus(candidature.statut)
     };
   }
 
   private extractTagsFromCandidature(candidature: BackendCandidature): string[] {
+    if (candidature.competenceTags?.length) {
+      return candidature.competenceTags.map((item) => item.trim()).filter((item) => !!item);
+    }
+
     const raw = `${candidature.poste || ''},${candidature.departement || ''}`;
     return raw.split(',').map((item) => item.trim()).filter((item) => !!item);
   }

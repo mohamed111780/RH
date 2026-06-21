@@ -14,4 +14,6 @@ public interface CandidatureRepository extends JpaRepository<Candidature, Long> 
     long countByOffreId(Long offreId);
 
     boolean existsByOffreIdAndEmployeId(Long offreId, Long employeId);
+
+    boolean existsByOffreIdAndEmailIgnoreCase(Long offreId, String email);
 }

@@ -1,0 +1,68 @@
+<section class="detail-page">
+  <div class="detail-background" aria-hidden="true">
+    <div class="bg-card primary">
+      <span>{{ offer?.departement }}</span>
+      <strong>{{ offer?.niveau }}</strong>
+    </div>
+    <div class="bg-card secondary">
+      <span>Candidatures</span>
+      <strong>{{ offer?.candidatures }}</strong>
+    </div>
+    <div class="bg-card tertiary">
+      <span>Contrat</span>
+      <strong>{{ offer?.contrat }}</strong>
+    </div>
+  </div>
+
+  <div class="detail-shell">
+    <article class="detail-modal">
+      <div class="detail-hero">
+        <div class="hero-copy">
+          <span class="detail-tag">Offre externe</span>
+          <h1>{{ offer?.titre }}</h1>
+          <p>{{ offer?.company }} · {{ offer?.location }}</p>
+          <div class="detail-meta">
+            <span>{{ offer?.niveau }}</span>
+            <span>{{ offer?.departement }}</span>
+            <span>{{ offer?.contrat }}</span>
+            <span>{{ offer?.statut }}</span>
+          </div>
+        </div>
+
+        <div class="hero-action-card">
+          <div class="action-score">
+            <strong>{{ offer?.skills?.length || 0 }}</strong>
+            <span>tags à matcher</span>
+          </div>
+          <button class="btn-hero-orange" [routerLink]="['/postuler', offer?.id]">Postuler maintenant</button>
+          <button class="btn-ghost" [routerLink]="['/home']">Retour aux offres</button>
+        </div>
+      </div>
+
+      <div class="detail-body">
+        <section class="detail-card description-card">
+          <span class="section-kicker">Mission</span>
+          <h2>Description du poste</h2>
+          <p>{{ offer?.description }}</p>
+        </section>
+
+        <aside class="detail-card side-card">
+          <div class="skills-block">
+            <span class="section-kicker">Matching</span>
+            <h2>Compétences requises</h2>
+            <div class="skill-list">
+              <span *ngFor="let skill of offer?.skills">{{ skill }}</span>
+            </div>
+          </div>
+
+          <div class="detail-summary">
+            <div><strong>Type</strong><span>{{ offer?.type }}</span></div>
+            <div><strong>Candidatures</strong><span>{{ offer?.candidatures }}</span></div>
+            <div><strong>Publié le</strong><span>{{ offer?.datePublication }}</span></div>
+            <div><strong>Statut</strong><span>{{ offer?.statut }}</span></div>
+          </div>
+        </aside>
+      </div>
+    </article>
+  </div>
+</section>

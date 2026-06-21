@@ -29,6 +29,9 @@ public class OffreEmploiServiceImpl implements OffreEmploiService {
         if (offre.getDatePublication() == null) {
             offre.setDatePublication(LocalDateTime.now());
         }
+        if (offre.getCandidatures() == null) {
+            offre.setCandidatures(0);
+        }
 
         return mapToDto(offreRepository.save(offre));
     }
@@ -120,6 +123,7 @@ public class OffreEmploiServiceImpl implements OffreEmploiService {
         offre.setDepartement(dto.getDepartement());
         offre.setNiveau(dto.getNiveau());
         offre.setContrat(dto.getContrat());
+        offre.setCandidatures(dto.getCandidatures());
         offre.setCompetences(joinSkills(dto.getSkills()));
         offre.setStatut(dto.getStatut());
         offre.setDatePublication(dto.getDatePublication());

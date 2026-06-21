@@ -6,8 +6,8 @@ import { AuthGuard } from './guards/auth.guard';
 import { RoleGuard } from './guards/role.guard';
 import {EspaceAdminComponent} from "./components/Admin/espace-admin/espace-admin.component";
 import {EspaceEmployeComponent} from "./components/employe/espace-employe/espace-employe.component";
-import {EspaceRhComponent} from "./components/rh/espace-rh/espace-rh.component";
-
+import {EspaceRhComponent} from "./components/rh/espace-rh/espace-rh.component";import { OfferDetailComponent } from './components/home/offer-detail/offer-detail.component';
+import { ApplyFormComponent } from './components/home/apply-form/apply-form.component';
 
 export const routes: Routes = [
 
@@ -15,9 +15,9 @@ export const routes: Routes = [
 
   { path: 'home', component: HomeComponent },
 
-  { path: 'login', component: LoginComponent },
+  { path: 'login', component: HomeComponent, data: { authModal: 'login' } },
 
-  { path: 'reset', component: ResetPasswordComponent },
+  { path: 'reset', component: HomeComponent, data: { authModal: 'reset' } },
 
   // EMPLOYE
   {
@@ -46,6 +46,8 @@ export const routes: Routes = [
     canActivate: [AuthGuard, RoleGuard],
     data: { role: 'ADMIN' }
   },
+  { path: 'offre/:id', component: OfferDetailComponent },
+  { path: 'postuler/:id', component: ApplyFormComponent },
 
   { path: '**', redirectTo: 'home' }
 

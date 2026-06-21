@@ -6,6 +6,9 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Getter
 @Setter
@@ -25,7 +28,13 @@ public class Candidature {
 
     private String cv;
     private String lettreMotivation;
-    
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "candidature_competence_tags", joinColumns = @JoinColumn(name = "candidature_id"))
+    @Column(name = "tag")
+    private List<String> competenceTags = new ArrayList<>();
+
+    private Integer scoreMatching;
 
     @ManyToOne
     private OffreEmploi offre;

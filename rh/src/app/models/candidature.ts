@@ -9,6 +9,8 @@ export interface Candidature {
   departement?: string;
   cv?: string;
   lettreMotivation?: string;
+  competenceTags?: string[];
+  scoreMatching?: number;
   statut?: string;
   offreId?: number;
   titreOffre?: string;

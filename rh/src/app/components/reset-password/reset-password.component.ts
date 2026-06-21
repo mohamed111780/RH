@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, OnDestroy, Output } from '@angular/core';
 import { CommonModule }                  from '@angular/common';
 import { ReactiveFormsModule,
          FormBuilder,
@@ -18,6 +18,9 @@ import {ChangeDetectorRef} from "@angular/core";
   styleUrls:   ['./reset-password.component.css'],
 })
 export class ResetPasswordComponent implements OnInit, OnDestroy {
+
+  @Input() embedded = false;
+  @Output() loginRequested = new EventEmitter<void>();
 
   // ── Navigation entre étapes ───────────────────────────────────────
   // Étape 1 : demandeMotDePasse(email)
@@ -226,6 +229,15 @@ export class ResetPasswordComponent implements OnInit, OnDestroy {
       this.errorMessage   = '';
       this.successMessage = '';
     }
+  }
+
+  goToLogin(event?: Event): void {
+    event?.preventDefault();
+    if (this.embedded) {
+      this.loginRequested.emit();
+      return;
+    }
+    this.router.navigate(['/login']);
   }
 
   // ── Toggle affichage mot de passe ──────────────────────────────────

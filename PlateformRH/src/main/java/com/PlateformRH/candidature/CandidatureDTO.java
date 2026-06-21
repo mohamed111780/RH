@@ -4,6 +4,8 @@ package com.PlateformRH.candidature;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.List;
+
 @Getter
 @Setter
 public class CandidatureDTO {
@@ -20,7 +22,9 @@ public class CandidatureDTO {
 
     private String cv;
     private String lettreMotivation;
-    
+
+    private List<String> competenceTags;
+    private Integer scoreMatching;
 
     private String statut;
 

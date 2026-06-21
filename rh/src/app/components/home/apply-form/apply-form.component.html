@@ -1,0 +1,150 @@
+<section class="apply-page">
+  <div class="apply-background" aria-hidden="true">
+    <div class="bg-card primary">
+      <span>{{ offer?.titre }}</span>
+      <strong>{{ estimatedScore() }}%</strong>
+    </div>
+    <div class="bg-card secondary">
+      <span>{{ offer?.departement }}</span>
+      <strong>{{ selectedSkills.length }} tags</strong>
+    </div>
+    <div class="bg-card tertiary">
+      <span>{{ offer?.company }}</span>
+      <strong>{{ offer?.contrat }}</strong>
+    </div>
+  </div>
+
+  <div class="modal-backdrop">
+    <div class="apply-modal" role="dialog" aria-modal="true" aria-label="Formulaire de candidature">
+      <button class="modal-close" type="button" [routerLink]="['/offre', offer?.id]" aria-label="Retour à l'offre">×</button>
+
+      <div class="modal-header">
+        <div>
+          <span class="apply-tag">Candidature externe</span>
+          <h1>Postuler pour « {{ offer?.titre }} »</h1>
+          <p>{{ offer?.company }} · {{ offer?.location }}</p>
+        </div>
+        <div class="score-pill">
+          <strong>{{ estimatedScore() }}%</strong>
+          <span>matching</span>
+        </div>
+      </div>
+
+      <div class="success-state" *ngIf="submitted">
+        <div class="success-icon">✓</div>
+        <h2>Candidature envoyée</h2>
+        <p>Votre dossier a bien été enregistré avec vos tags de compétences.</p>
+        <button class="btn-hero-orange" type="button" [routerLink]="['/home']">Retour aux offres</button>
+      </div>
+
+      <div class="modal-body" *ngIf="!submitted">
+        <aside class="offer-panel">
+          <h2>Détails de l'offre</h2>
+          <ul>
+            <li><strong>Département</strong><span>{{ offer?.departement }}</span></li>
+            <li><strong>Niveau</strong><span>{{ offer?.niveau }}</span></li>
+            <li><strong>Contrat</strong><span>{{ offer?.contrat }}</span></li>
+            <li><strong>Type</strong><span>{{ offer?.type }}</span></li>
+          </ul>
+
+          <div class="apply-skills">
+            <h3>Compétences attendues</h3>
+            <span *ngFor="let skill of offer?.skills">{{ skill }}</span>
+          </div>
+        </aside>
+
+        <div class="form-panel">
+          <div class="stepper" aria-label="Étapes de candidature">
+            <button
+              type="button"
+              class="step"
+              *ngFor="let step of steps"
+              [class.active]="currentStep === step.id"
+              [class.done]="currentStep > step.id"
+              (click)="currentStep = step.id">
+              <span>{{ step.id }}</span>
+              {{ step.label }}
+            </button>
+          </div>
+
+          <div class="apply-panel" *ngIf="currentStep === 1">
+            <h2>Vos informations</h2>
+            <p>Renseignez vos coordonnées pour créer votre dossier candidat.</p>
+            <div class="form-grid">
+              <label>
+                <span>Nom complet</span>
+                <input type="text" [(ngModel)]="candidate.name" placeholder="Nom et prénom" />
+              </label>
+              <label>
+                <span>Email</span>
+                <input type="email" [(ngModel)]="candidate.email" placeholder="exemple@domaine.tn" />
+              </label>
+              <label>
+                <span>Téléphone</span>
+                <input type="tel" [(ngModel)]="candidate.phone" placeholder="+216 5x xxx xxx" />
+              </label>
+              <label>
+                <span>Lien CV</span>
+                <input type="text" [(ngModel)]="candidate.cv" placeholder="URL Drive, LinkedIn ou portfolio" />
+              </label>
+            </div>
+          </div>
+
+          <div class="apply-panel" *ngIf="currentStep === 2">
+            <h2>Tags de compétences</h2>
+            <p>Choisissez les tags qui décrivent votre profil. Ils servent au calcul du score.</p>
+            <div class="suggested-skills">
+              <button
+                type="button"
+                *ngFor="let skill of offer?.skills"
+                [class.selected]="selectedSkills.includes(skill)"
+                (click)="toggleSkill(skill)">
+                {{ skill }}
+              </button>
+            </div>
+            <div class="skill-input-row">
+              <input type="text" [(ngModel)]="customSkill" placeholder="Ajouter une compétence" (keyup.enter)="addCustomSkill()" />
+              <button type="button" class="btn-secondary" (click)="addCustomSkill()">Ajouter</button>
+            </div>
+            <div class="selected-skills" *ngIf="selectedSkills.length">
+              <button type="button" *ngFor="let skill of selectedSkills" (click)="removeSkill(skill)">
+                {{ skill }} <span>×</span>
+              </button>
+            </div>
+            <div class="score-preview">
+              <div>
+                <strong>{{ estimatedScore() }}%</strong>
+                <span>score estimé</span>
+              </div>
+              <div class="score-bar"><span [style.width]="estimatedScore() + '%'"></span></div>
+            </div>
+          </div>
+
+          <div class="apply-panel" *ngIf="currentStep === 3">
+            <h2>Validation</h2>
+            <p>Ajoutez un message court avant l'envoi de votre candidature.</p>
+            <label class="full-field">
+              <span>Message</span>
+              <textarea rows="5" [(ngModel)]="candidate.message" placeholder="Expliquez brièvement votre motivation"></textarea>
+            </label>
+            <div class="review-box">
+              <div><strong>Candidat</strong><span>{{ candidate.name || 'Non renseigné' }}</span></div>
+              <div><strong>Email</strong><span>{{ candidate.email || 'Non renseigné' }}</span></div>
+              <div><strong>Tags</strong><span>{{ selectedSkills.join(', ') || 'Aucun tag' }}</span></div>
+              <div><strong>Score estimé</strong><span>{{ estimatedScore() }}%</span></div>
+            </div>
+          </div>
+
+          <div class="apply-actions">
+            <button type="button" class="btn-secondary" *ngIf="currentStep > 1" (click)="previousStep()">Précédent</button>
+            <button type="button" class="btn-hero-orange" *ngIf="currentStep < 3" [disabled]="!canContinue()" (click)="nextStep()">Continuer</button>
+            <button type="button" class="btn-hero-orange" *ngIf="currentStep === 3" [disabled]="!canSubmit()" (click)="submitApplication()">
+              {{ isSubmitting ? 'Envoi...' : 'Envoyer ma candidature' }}
+            </button>
+          </div>
+          <p class="submit-error" *ngIf="submitError">{{ submitError }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

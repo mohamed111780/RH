@@ -3,11 +3,24 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
 <!-- ══════════════════ SIDEBAR ══════════════════ -->
-<aside class="sidebar">
+<aside class="sidebar" [class.expanded]="sidebarExpanded">
   <div class="sidebar-logo">
-    <div class="logo-icon"><i class="fas fa-brain"></i></div>
-    <div class="logo-text">Nex<span>HR</span></div>
+    <div class="logo-icon" aria-hidden="true">
+      <svg width="22" height="22" fill="none" viewBox="0 0 32 32">
+        <path d="M6 26L16 6l10 20" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M9.5 19h13" stroke="#ffb14a" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="logo-text">It<span>Vision</span></div>
   </div>
+
+  <button
+    type="button"
+    class="sidebar-toggle"
+    (click)="toggleSidebar()"
+    [attr.aria-label]="sidebarExpanded ? 'Réduire le menu' : 'Élargir le menu'">
+    <i class="fas" [class.fa-angles-right]="!sidebarExpanded" [class.fa-angles-left]="sidebarExpanded"></i>
+  </button>
 
   <div class="sidebar-section">Principal</div>
   <div class="nav-item" [class.active]="currentPage === 'dashboard'" (click)="showPage('dashboard')">
@@ -115,7 +128,7 @@
           <div class="mini-chart" style="margin-bottom:10px;">
             <div class="mini-bar" *ngFor="let h of recruitmentBars; let i = index"
               [style.height]="h + '%'"
-              [style.background]="h === 100 ? 'var(--accent)' : 'rgba(108,99,255,' + (0.15 + h/200) + ')'"
+              [style.background]="h === 100 ? 'var(--accent)' : 'rgba(214,58,29,' + (0.16 + h/190) + ')'"
               [title]="recruitmentDays[i] + ': ' + (h/10 | number:'1.0-0')">
             </div>
           </div>
@@ -453,7 +466,7 @@
               <div style="font-size:11px;color:var(--text3);">Temps triage moyen</div>
             </div>
           </div>
-          <div style="background:rgba(108,99,255,0.08);border:1px solid rgba(108,99,255,0.15);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--text2);line-height:1.6;">
+          <div style="background:rgba(232,68,33,0.1);border:1px solid rgba(232,68,33,0.2);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--text2);line-height:1.6;">
             <i class="fas fa-lightbulb" style="color:var(--accent4);margin-right:6px;"></i>
             <strong style="color:var(--text);">Recommandation IA :</strong>
             Les candidats ayant React + TypeScript + Docker obtiennent en moyenne
@@ -479,7 +492,7 @@
         <div style="display:flex;gap:16px;align-items:flex-end;height:120px;padding:0 8px;">
           <div class="funnel-bar">
             <div class="funnel-val">53</div>
-            <div class="funnel-block" style="background:rgba(108,99,255,0.6);height:100px;"></div>
+            <div class="funnel-block" style="background:rgba(232,68,33,0.72);height:100px;"></div>
             <div class="funnel-label">Candidatures</div>
           </div>
           <div class="funnel-bar">
