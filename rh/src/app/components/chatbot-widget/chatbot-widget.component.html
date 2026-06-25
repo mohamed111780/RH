@@ -1,0 +1,39 @@
+<button class="chat-toggle" type="button" (click)="toggle()" aria-label="Ouvrir le chatbot">
+  <span>AI</span>
+</button>
+
+<section class="chat-panel" *ngIf="isOpen">
+  <header class="chat-header">
+    <div>
+      <strong>Assistant RH</strong>
+      <span>Ollama local</span>
+    </div>
+    <button type="button" (click)="toggle()" aria-label="Fermer">x</button>
+  </header>
+
+  <div class="chat-messages">
+    <div
+      class="message"
+      *ngFor="let message of messages"
+      [class.user]="message.role === 'user'"
+      [class.assistant]="message.role === 'assistant'"
+    >
+      {{ message.content }}
+    </div>
+
+    <div class="message assistant loading" *ngIf="isLoading">
+      Reponse en cours...
+    </div>
+  </div>
+
+  <form class="chat-form" (ngSubmit)="send()">
+    <textarea
+      name="question"
+      [(ngModel)]="question"
+      rows="2"
+      placeholder="Posez une question sur les utilisateurs, conges, formations..."
+      [disabled]="isLoading"
+    ></textarea>
+    <button type="submit" [disabled]="isLoading || !question.trim()">Envoyer</button>
+  </form>
+</section>
