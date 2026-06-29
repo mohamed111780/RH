@@ -14,6 +14,7 @@ import { ChatMessage, ChatbotService } from '../../services/chatbot.service';
 })
 export class ChatbotWidgetComponent implements OnInit, OnDestroy {
   isOpen = false;
+  isExpanded = false;
   question = '';
   isLoading = false;
   messages: ChatMessage[] = [];
@@ -45,6 +46,10 @@ export class ChatbotWidgetComponent implements OnInit, OnDestroy {
 
   toggle(): void {
     this.isOpen = !this.isOpen;
+  }
+
+  toggleExpanded(): void {
+    this.isExpanded = !this.isExpanded;
   }
 
   send(): void {

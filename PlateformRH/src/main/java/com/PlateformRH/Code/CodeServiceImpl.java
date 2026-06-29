@@ -1,8 +1,8 @@
 package com.PlateformRH.Code;
 
-import com.PlateformRH.Utilisateur.UtilisateurRepository;
-import com.PlateformRH.Utilisateur.UtilisateurServiceImpl;
-import com.PlateformRH.Utilisateur.utilisateur;
+import com.PlateformRH.Employe.employe;
+import com.PlateformRH.Employe.UtilisateurRepository;
+import com.PlateformRH.Employe.UtilisateurServiceImpl;
 import com.PlateformRH.config.EmailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -27,7 +27,7 @@ public class CodeServiceImpl implements CodeService{
 
     @Override
     public void codeActivation(String username){
-        utilisateur utilisateur= utilisateurService.loadUserByUsername(username);
+        employe utilisateur= utilisateurService.loadUserByUsername(username);
 
         if (utilisateur == null) {
             throw new UsernameNotFoundException("User not found with username: " + username);
@@ -75,7 +75,7 @@ public class CodeServiceImpl implements CodeService{
         String code = parametres.get("code");
 
         Code validation = codeRepository.findByCode(code);
-        utilisateur utilisateur = validation.getUtilisateur();
+        employe utilisateur = validation.getUtilisateur();
         if (validation == null || Instant.now().isAfter(validation.getExpiration())) {
 
             Map<String, String> response = Map.of("message", "Invalid Code");
@@ -98,7 +98,7 @@ public class CodeServiceImpl implements CodeService{
         String email = parametres.get("email");
         String password = parametres.get("password");
         // Charger l'utilisateur par email
-        utilisateur utilisateur=utilisateurService.loadUserByUsername(email);
+        employe utilisateur=utilisateurService.loadUserByUsername(email);
 
         // Mettre à jour le mot de passe si fourni
         if (password != null && !password.isEmpty()) {

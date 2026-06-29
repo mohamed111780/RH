@@ -1,6 +1,6 @@
 package com.PlateformRH.Code;
 
-import com.PlateformRH.Utilisateur.utilisateur;
+import com.PlateformRH.Employe.employe;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -19,5 +19,5 @@ public class Code {
     private Instant activation;
     private String code;
     @ManyToOne(cascade= CascadeType.ALL)
-    private utilisateur utilisateur;
+    private employe utilisateur;
 }

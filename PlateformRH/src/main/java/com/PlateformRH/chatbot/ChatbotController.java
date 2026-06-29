@@ -1,7 +1,7 @@
 package com.PlateformRH.chatbot;
 
-import com.PlateformRH.Utilisateur.Role;
-import com.PlateformRH.Utilisateur.utilisateur;
+import com.PlateformRH.Employe.employe;
+import com.PlateformRH.Employe.Role;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -29,7 +29,7 @@ public class ChatbotController {
     private ChatbotAccessLevel resolveAccessLevel(Authentication authentication, String requestedScope) {
         ChatbotAccessLevel requestedAccessLevel = parseRequestedScope(requestedScope);
 
-        if (authentication == null || !(authentication.getPrincipal() instanceof utilisateur user)) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof employe user)) {
             return ChatbotAccessLevel.VISITEUR;
         }
 

@@ -1,6 +1,6 @@
 package com.PlateformRH.Jwt;
 
-import com.PlateformRH.Utilisateur.utilisateur;
+import com.PlateformRH.Employe.employe;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -23,6 +23,6 @@ public class Jwt  {
 
     @ManyToOne
     @JoinColumn(name = "user_id")
-    private utilisateur user;
+    private employe user;
 
 }

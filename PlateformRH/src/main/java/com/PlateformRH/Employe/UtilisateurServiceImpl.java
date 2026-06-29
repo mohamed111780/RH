@@ -1,7 +1,7 @@
-package com.PlateformRH.Utilisateur;
+package com.PlateformRH.Employe;
 
+import com.PlateformRH.Employe.employe;
 import com.PlateformRH.Jwt.JwtRepository;
-import com.PlateformRH.Jwt.JwtService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -23,7 +23,7 @@ public class UtilisateurServiceImpl implements UserDetailsService, UtilisateurSe
     private final JwtRepository jwtRepository;
 
     @Override
-    public void prepareUtilisateur(utilisateur utilisateur) {
+    public void prepareUtilisateur(employe utilisateur) {
 
         if (utilisateurRepository.findByEmail(utilisateur.getEmail()).isPresent()) {
             throw new RuntimeException("email existe");
@@ -36,7 +36,7 @@ public class UtilisateurServiceImpl implements UserDetailsService, UtilisateurSe
     }
 
     @Override
-    public void create(utilisateur utilisateur) {
+    public void create(employe utilisateur) {
       this.prepareUtilisateur(utilisateur);
       // ajouter le role
          utilisateurRepository.save(utilisateur);
@@ -46,7 +46,7 @@ public class UtilisateurServiceImpl implements UserDetailsService, UtilisateurSe
     @Transactional
     @Override
     public  void delete (Long id){
-        utilisateur user = utilisateurRepository.findById(id)
+        employe user = utilisateurRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("aucun utilisateur ayant cet id"));
         jwtRepository.deleteByUserId(id);
         utilisateurRepository.delete(user);
@@ -65,7 +65,7 @@ public class UtilisateurServiceImpl implements UserDetailsService, UtilisateurSe
     }
 
 
-    public UtilisateurDTO UserToDto (utilisateur utilisateur) {
+    public UtilisateurDTO UserToDto(employe utilisateur) {
         UtilisateurDTO dto = new UtilisateurDTO();
         dto.setId(utilisateur.getId());
         dto.setNom(utilisateur.getNom());
@@ -81,7 +81,7 @@ public class UtilisateurServiceImpl implements UserDetailsService, UtilisateurSe
     @Override
     public UtilisateurDTO update(Long id, UtilisateurDTO newUser) {
 
-        utilisateur existingUser = utilisateurRepository.findById(id)
+        employe existingUser = utilisateurRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
         //  update les champs
@@ -95,14 +95,14 @@ public class UtilisateurServiceImpl implements UserDetailsService, UtilisateurSe
     }
 
     @Override
-    public utilisateur loadUserByUsername(String username) throws UsernameNotFoundException {
+    public employe loadUserByUsername(String username) throws UsernameNotFoundException {
         return this.utilisateurRepository
                 .findByEmail(username)
                 .orElseThrow(() -> new UsernameNotFoundException("No user matches this ID"));
     }
     public List<UtilisateurDTO> getUsersByRole(String role) {
 
-        List<utilisateur> users = utilisateurRepository.findByRole(Role.valueOf(role));
+        List<employe> users = utilisateurRepository.findByRole(Role.valueOf(role));
 
         return users.stream()
                 .map(this::UserToDto)
@@ -121,7 +121,7 @@ public class UtilisateurServiceImpl implements UserDetailsService, UtilisateurSe
         String nouveauMotDePasse =
                 body.get("nouveauMotDePasse");
 
-       utilisateur utilisateur = utilisateurRepository.findById(id)
+       employe utilisateur = utilisateurRepository.findById(id)
                 .orElseThrow(() ->
                         new RuntimeException(
                                 "Employé introuvable"
@@ -149,7 +149,7 @@ public class UtilisateurServiceImpl implements UserDetailsService, UtilisateurSe
     }
     @Transactional
     public void changerStatut(Long id) {
-        utilisateur user = utilisateurRepository.findById(id)
+        employe user = utilisateurRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
 
         user.setActif(!user.isActif()); // toggle ON/OFF
@@ -157,7 +157,6 @@ public class UtilisateurServiceImpl implements UserDetailsService, UtilisateurSe
         utilisateurRepository.save(user);
     }
 }
-
 
 
 

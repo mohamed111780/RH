@@ -4,9 +4,9 @@ import com.PlateformRH.Employe.EmployeRepository;
 import com.PlateformRH.Employe.employe;
 import com.PlateformRH.Formation.FormationRepository;
 import com.PlateformRH.Formation.formation;
-import com.PlateformRH.Utilisateur.Role;
-import com.PlateformRH.Utilisateur.UtilisateurRepository;
-import com.PlateformRH.Utilisateur.utilisateur;
+import com.PlateformRH.Employe.Role;
+import com.PlateformRH.Employe.UtilisateurRepository;
+import com.PlateformRH.Employe.employe;
 import com.PlateformRH.candidature.Candidature;
 import com.PlateformRH.candidature.CandidatureRepository;
 import com.PlateformRH.demandeConge.DemandeConge;
@@ -129,13 +129,13 @@ public class ChatbotDataService {
     }
 
     private void appendUtilisateurContext(StringBuilder context) {
-        List<utilisateur> utilisateurs = utilisateurRepository.findAll();
+        List<employe> utilisateurs = utilisateurRepository.findAll();
         Map<Role, Long> usersByRole = utilisateurs.stream()
                 .filter(user -> user.getRole() != null)
-                .collect(Collectors.groupingBy(utilisateur::getRole, Collectors.counting()));
+                .collect(Collectors.groupingBy(employe::getRole, Collectors.counting()));
 
         context.append("\nUtilisateurs: total=").append(utilisateurs.size())
-                .append(", actifs=").append(utilisateurs.stream().filter(utilisateur::isEnabled).count())
+                .append(", actifs=").append(utilisateurs.stream().filter(employe::isEnabled).count())
                 .append(", par role=").append(usersByRole).append('\n');
     }
 

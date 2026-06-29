@@ -1,6 +1,7 @@
-package com.PlateformRH.Utilisateur;
+package com.PlateformRH.Employe;
 
 import com.PlateformRH.Code.CodeServiceImpl;
+import com.PlateformRH.Employe.employe;
 import com.PlateformRH.Jwt.Authentification;
 import com.PlateformRH.Jwt.JwtService;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +25,7 @@ public class UtilisateurController {
 
     // ✅ CREATE (inscription / ajout employé)
    @PostMapping
-    public void create(@RequestBody utilisateur utilisateur) {
+    public void create(@RequestBody employe utilisateur) {
          utilisateurService.create(utilisateur);
     }
 
@@ -93,7 +94,7 @@ public class UtilisateurController {
 
 
        
-        utilisateur utilisateur = utilisateurService.loadUserByUsername(authentification.username());
+        employe utilisateur = utilisateurService.loadUserByUsername(authentification.username());
         UtilisateurDTO utilisateurDTO= utilisateurService.UserToDto(utilisateur);
         Map<String, String> tokens = jwtService.generate(utilisateur.getUsername());
 

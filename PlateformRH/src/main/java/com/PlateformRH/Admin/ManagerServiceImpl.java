@@ -1,7 +1,8 @@
 package com.PlateformRH.Admin;
 
-import com.PlateformRH.Utilisateur.Role;
-import com.PlateformRH.Utilisateur.UtilisateurService;
+import com.PlateformRH.Employe.TypeContrat;
+import com.PlateformRH.Employe.Role;
+import com.PlateformRH.Employe.UtilisateurService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -48,7 +49,9 @@ public class ManagerServiceImpl {
         manager.setPoste(dto.getPoste());
         manager.setDepartement(dto.getDepartement());
         manager.setDateEmbauche(dto.getDateEmbauche());
-        manager.setTypeContrat(dto.getTypeContrat());
+        if (dto.getTypeContrat() != null) {
+            manager.setTypeContrat(TypeContrat.valueOf(dto.getTypeContrat()));
+        }
 
         return mapToDto(managerRepository.save(manager));
     }
@@ -67,7 +70,9 @@ public class ManagerServiceImpl {
         dto.setPoste(manager.getPoste());
         dto.setDepartement(manager.getDepartement());
         dto.setDateEmbauche(manager.getDateEmbauche());
-        dto.setTypeContrat(manager.getTypeContrat());
+        if (manager.getTypeContrat() != null) {
+            dto.setTypeContrat(manager.getTypeContrat().name());
+        }
         return dto;
     }
 }

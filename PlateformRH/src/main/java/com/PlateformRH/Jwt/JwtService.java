@@ -1,7 +1,7 @@
 package com.PlateformRH.Jwt;
 
-import com.PlateformRH.Utilisateur.UtilisateurServiceImpl;
-import com.PlateformRH.Utilisateur.utilisateur;
+import com.PlateformRH.Employe.employe;
+import com.PlateformRH.Employe.UtilisateurServiceImpl;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -35,7 +35,7 @@ public class JwtService {
     }
 
     public Map<String, String> generate(String username) {
-        utilisateur utilisateur = userService.loadUserByUsername(username);
+        employe utilisateur = userService.loadUserByUsername(username);
         this.disableTokens(utilisateur);
         final Map<String, String> jwtMap = generateJwt(utilisateur);
         final Jwt jwt = Jwt.builder()
@@ -50,7 +50,7 @@ public class JwtService {
     }
 
 
-    public void disableTokens(utilisateur utilisateur) {
+    public void disableTokens(employe utilisateur) {
         final List<Jwt> jwtList = jwtRepository.findTokensByUserEmail(utilisateur.getEmail()).map(
                 jwt -> {
                     jwt.setDesactivated(true);
@@ -62,7 +62,7 @@ public class JwtService {
         jwtRepository.saveAll(jwtList);
     }
 
-    public Map<String, String> generateJwt(utilisateur utilisateur) {
+    public Map<String, String> generateJwt(employe utilisateur) {
         final long currentTime = System.currentTimeMillis();
         final long accessExpiration = currentTime + (300 * 60 * 1000); // 300 minutes  5h
         final long refreshExpiration = currentTime + (24 * 60 * 60 * 1000); // 24 heures
@@ -130,7 +130,7 @@ public class JwtService {
     }
 
     public void deconnexion(){
-        utilisateur utilisateur = (utilisateur) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        employe utilisateur = (employe) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
         Jwt jwt = jwtRepository.findValidToken(utilisateur.getEmail(), false, false)
                 .orElseThrow(() -> new RuntimeException("Token invalide"));

@@ -1,4 +1,4 @@
-package com.PlateformRH.Utilisateur;
+package com.PlateformRH.Employe;
 
 
 import lombok.Getter;

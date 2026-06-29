@@ -2,13 +2,25 @@
   <span>AI</span>
 </button>
 
-<section class="chat-panel" *ngIf="isOpen">
+<section class="chat-panel" [class.expanded]="isExpanded" *ngIf="isOpen">
   <header class="chat-header">
     <div>
       <strong>Assistant RH</strong>
       <span>Ollama local</span>
     </div>
-    <button type="button" (click)="toggle()" aria-label="Fermer">x</button>
+    <div class="chat-actions">
+      <button
+        type="button"
+        (click)="toggleExpanded()"
+        [attr.aria-label]="isExpanded ? 'Reduire la fenetre' : 'Agrandir la fenetre'"
+        [title]="isExpanded ? 'Reduire' : 'Agrandir'"
+      >
+        <i class="fas" [class.fa-compress]="isExpanded" [class.fa-expand]="!isExpanded"></i>
+      </button>
+      <button type="button" (click)="toggle()" aria-label="Fermer" title="Fermer">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
   </header>
 
   <div class="chat-messages">

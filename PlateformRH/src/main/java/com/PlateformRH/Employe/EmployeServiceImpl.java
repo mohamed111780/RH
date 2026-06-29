@@ -1,7 +1,7 @@
 package com.PlateformRH.Employe;
 
-import com.PlateformRH.Utilisateur.Role;
-import com.PlateformRH.Utilisateur.UtilisateurService;
+import com.PlateformRH.Employe.Role;
+import com.PlateformRH.Employe.UtilisateurService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
