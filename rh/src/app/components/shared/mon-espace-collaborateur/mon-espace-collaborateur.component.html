@@ -1,0 +1,295 @@
+<div class="mon-espace">
+  <div class="mon-espace-header">
+    <div>
+      <span class="eyebrow">Espace collaborateur</span>
+      <h2>Mes Demandes & Mobilité</h2>
+      <p>Congés, formations et offres internes — tout au même endroit.</p>
+    </div>
+    <div class="header-stats">
+      <div class="stat-chip">
+        <i class="fas fa-umbrella-beach"></i>
+        <span><strong>{{ soldeRestant }}</strong> j restants</span>
+      </div>
+      <div class="stat-chip amber" *ngIf="pendingConges > 0">
+        <i class="fas fa-hourglass-half"></i>
+        <span><strong>{{ pendingConges }}</strong> en attente</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button type="button" class="tab" [class.active]="activeTab === 'conges'" (click)="showTab('conges')">
+      <i class="fas fa-umbrella-beach"></i> Mes Congés
+      <span class="tab-badge" *ngIf="pendingConges > 0">{{ pendingConges }}</span>
+    </button>
+    <button type="button" class="tab" [class.active]="activeTab === 'formations'" (click)="showTab('formations')">
+      <i class="fas fa-graduation-cap"></i> Formations
+      <span class="tab-badge" *ngIf="mesFormationsActives.length > 0">{{ mesFormationsActives.length }}</span>
+    </button>
+    <button type="button" class="tab" [class.active]="activeTab === 'offres'" (click)="showTab('offres')">
+      <i class="fas fa-briefcase"></i> Offres Internes
+      <span class="tab-badge">{{ offresInternes.length }}</span>
+    </button>
+  </div>
+
+  <!-- CONGÉS -->
+  <section class="tab-panel" *ngIf="activeTab === 'conges'">
+    <div class="panel-toolbar">
+      <h3><i class="fas fa-umbrella-beach"></i> Mes demandes de congé</h3>
+      <button type="button" class="btn-primary" (click)="openCongeModal()">
+        <i class="fas fa-plus"></i> Nouvelle demande
+      </button>
+    </div>
+
+    <div class="grid-4 stats-row">
+      <div class="stat-card green"><div class="stat-value">{{ employe.soldeConges }}</div><div class="stat-label">Solde total</div></div>
+      <div class="stat-card cyan"><div class="stat-value">{{ soldeRestant }}</div><div class="stat-label">Jours restants</div></div>
+      <div class="stat-card amber"><div class="stat-value">{{ pendingConges }}</div><div class="stat-label">En attente</div></div>
+      <div class="stat-card purple"><div class="stat-value">{{ demandesConge.length }}</div><div class="stat-label">Total demandes</div></div>
+    </div>
+
+    <div class="card">
+      <div class="loading-state" *ngIf="loadingDemandesConge">Chargement...</div>
+      <div class="empty-state" *ngIf="!loadingDemandesConge && demandesConge.length === 0">
+        <i class="fas fa-inbox"></i>
+        <p>Aucune demande de congé pour le moment</p>
+      </div>
+      <div class="conge-row" *ngFor="let c of demandesConge">
+        <div class="conge-icon" [class]="congeStatusClass(c.statutDemande)">
+          <i class="fas" [class.fa-check]="c.statutDemande === 'APPROUVEE'" [class.fa-clock]="c.statutDemande === 'EN_ATTENTE'" [class.fa-times]="c.statutDemande === 'REFUSEE' || c.statutDemande === 'ANNULEE'"></i>
+        </div>
+        <div class="conge-info">
+          <span class="conge-type">{{ typeLabel(c.typeConge) }}</span>
+          <span class="conge-dates">{{ formatDate(c.debut) }} → {{ formatDate(c.fin) }}</span>
+        </div>
+        <div class="conge-actions">
+          <span class="conge-days" [class]="congeStatusClass(c.statutDemande)">{{ congeDays(c) }}j</span>
+          <span class="status-pill" [class]="congeStatusClass(c.statutDemande)">{{ statusLabel(c.statutDemande) }}</span>
+          <button type="button" class="btn-sm secondary" *ngIf="c.statutDemande === 'EN_ATTENTE'" (click)="openEditCongeModal(c)">
+            <i class="fas fa-edit"></i> Modifier
+          </button>
+          <button type="button" class="btn-sm danger" *ngIf="c.statutDemande === 'EN_ATTENTE' && c.id" (click)="openCancelDemandeModal(c.id)">
+            <i class="fas fa-times"></i> Annuler
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FORMATIONS -->
+  <section class="tab-panel" *ngIf="activeTab === 'formations'">
+    <div class="panel-toolbar">
+      <h3><i class="fas fa-graduation-cap"></i> Formations</h3>
+    </div>
+
+    <div class="sub-tabs">
+      <button type="button" class="sub-tab" [class.active]="activeFormationTab === 'catalogue'" (click)="activeFormationTab = 'catalogue'">
+        <i class="fas fa-book-open"></i> Catalogue
+      </button>
+      <button type="button" class="sub-tab" [class.active]="activeFormationTab === 'mes'" (click)="activeFormationTab = 'mes'">
+        <i class="fas fa-user-graduate"></i> Mes demandes ({{ mesFormationsActives.length }})
+      </button>
+    </div>
+
+    <div class="loading-state" *ngIf="loadingFormations">Chargement des formations...</div>
+
+    <div *ngIf="!loadingFormations && activeFormationTab === 'catalogue'">
+      <div class="empty-state" *ngIf="formationsCatalogue.length === 0">
+        <i class="fas fa-book-open"></i>
+        <p>Aucune formation disponible dans le catalogue.</p>
+      </div>
+      <div class="formations-grid">
+        <div class="formation-card" [class]="'formation-card-' + f.tag" *ngFor="let f of formationsCatalogue">
+          <span class="formation-tag" [class]="f.tag">{{ f.tagLabel }}</span>
+          <h4>{{ f.title }}</h4>
+          <p>{{ f.desc }}</p>
+          <div class="formation-meta">
+            <span><i class="fas fa-clock"></i> {{ f.duration }}</span>
+            <span><i class="fas fa-users"></i> {{ f.enrolled }} places</span>
+          </div>
+          <button type="button" class="btn-primary btn-block" (click)="openDemandeFormationModal(f)">
+            <i class="fas fa-paper-plane"></i> Demander inscription
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="!loadingFormations && activeFormationTab === 'mes'">
+      <div class="empty-state" *ngIf="mesFormationsActives.length === 0">
+        <i class="fas fa-graduation-cap"></i>
+        <p>Aucune demande de formation. Explorez le catalogue pour en soumettre une.</p>
+      </div>
+      <div class="formations-grid">
+        <div class="formation-card formation-card-mine" [class]="'formation-card-' + f.tag" *ngFor="let f of mesFormationsActives">
+          <div class="formation-card-header">
+            <span class="formation-tag" [class]="f.tag">{{ f.tagLabel }}</span>
+            <span class="status-pill" [class]="f.status">{{ formationStatusLabel(f.status) }}</span>
+          </div>
+          <h4>{{ f.title }}</h4>
+          <p *ngIf="f.justification"><strong>Justification :</strong> {{ f.justification }}</p>
+          <div class="formation-request-actions" *ngIf="f.status === 'pending'">
+            <button type="button" class="btn-sm outline" (click)="openEditDemandeFormationModal($event, f)">
+              <i class="fas fa-pen"></i> Modifier
+            </button>
+            <button type="button" class="btn-sm danger" (click)="openCancelDemandeFormationModal($event, f)">
+              <i class="fas fa-times"></i> Annuler
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- OFFRES INTERNES -->
+  <section class="tab-panel" *ngIf="activeTab === 'offres'">
+    <div class="panel-toolbar">
+      <h3><i class="fas fa-briefcase"></i> Offres internes</h3>
+      <span class="hint"><i class="fas fa-info-circle"></i> Mobilité interne — postulez aux opportunités ouvertes</span>
+    </div>
+
+    <div class="loading-state" *ngIf="loadingOffresInternes">Chargement des offres...</div>
+
+    <div class="empty-state" *ngIf="!loadingOffresInternes && offresInternes.length === 0">
+      <i class="fas fa-briefcase"></i>
+      <p>Aucune offre interne disponible pour le moment.</p>
+    </div>
+
+    <div class="offres-grid">
+      <div class="offre-card" [class]="o.type" *ngFor="let o of offresInternes" (click)="showOffreModal = o">
+        <div class="offre-bar" [style.background]="offreTypeColor(o.type)"></div>
+        <div class="offre-top">
+          <span class="offre-niveau" [class]="o.niveau">{{ o.niveauLabel }}</span>
+          <span class="offre-date">{{ o.datePub }}</span>
+        </div>
+        <h4>{{ o.title }}</h4>
+        <div class="offre-dept"><i class="fas fa-building"></i> {{ o.dept }}</div>
+        <div class="offre-tags">
+          <span class="offre-tag" *ngFor="let t of o.tags">{{ t }}</span>
+        </div>
+        <div class="offre-footer">
+          <span class="postule-badge" *ngIf="o.postule"><i class="fas fa-check"></i> Candidature envoyée</span>
+          <button *ngIf="!o.postule" type="button" class="btn-sm primary" (click)="openOffreModal($event, o)">
+            <i class="fas fa-paper-plane"></i> Postuler
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Toast -->
+<div class="toast" [class.visible]="toastVisible">{{ toastMessage }}</div>
+
+<!-- Modal congé -->
+<div class="modal-overlay" *ngIf="showCongeModal" (click)="closeCongeModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <h3>{{ editingConge ? 'Modifier la demande' : 'Nouvelle demande de congé' }}</h3>
+    <div class="form-group">
+      <label>Type de congé</label>
+      <select [(ngModel)]="congeForm.type">
+        <option *ngFor="let type of congeTypeOptions" [value]="type">{{ typeLabel(type) }}</option>
+      </select>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Date de début</label>
+        <input type="date" [(ngModel)]="congeForm.dateDebut">
+      </div>
+      <div class="form-group">
+        <label>Date de fin</label>
+        <input type="date" [(ngModel)]="congeForm.dateFin">
+      </div>
+    </div>
+    <p class="hint-note"><i class="fas fa-info-circle"></i> Solde disponible : <strong>{{ soldeRestant }} jours</strong></p>
+    <div class="modal-actions">
+      <button type="button" class="btn-primary" [disabled]="submittingConge" (click)="submitConge()">
+        {{ submittingConge ? 'Envoi...' : (editingConge ? 'Enregistrer' : 'Soumettre') }}
+      </button>
+      <button type="button" class="btn-ghost" (click)="closeCongeModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal annulation congé -->
+<div class="modal-overlay" *ngIf="showCancelDemandeModal" (click)="closeCancelDemandeModal()">
+  <div class="modal modal-sm" (click)="$event.stopPropagation()">
+    <h3>Annuler la demande ?</h3>
+    <p>Cette action est irréversible.</p>
+    <div class="modal-actions">
+      <button type="button" class="btn-danger" [disabled]="cancelingDemande" (click)="confirmCancelDemande()">
+        {{ cancelingDemande ? 'Annulation...' : 'Confirmer' }}
+      </button>
+      <button type="button" class="btn-ghost" (click)="closeCancelDemandeModal()">Retour</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal demande formation -->
+<div class="modal-overlay" *ngIf="showDemandeFormationModal" (click)="closeDemandeFormationModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <h3>Demande d'inscription — {{ selectedFormationForRequest?.title }}</h3>
+    <div class="form-group">
+      <label>Justification</label>
+      <textarea rows="4" [(ngModel)]="demandeFormationForm.justification" placeholder="Expliquez pourquoi cette formation vous intéresse..."></textarea>
+      <p class="error" *ngIf="formationRequestError">{{ formationRequestError }}</p>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-primary" [disabled]="submittingFormationRequest" (click)="submitDemandeFormation()">
+        {{ submittingFormationRequest ? 'Envoi...' : 'Envoyer' }}
+      </button>
+      <button type="button" class="btn-ghost" (click)="closeDemandeFormationModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal edit formation -->
+<div class="modal-overlay" *ngIf="showEditDemandeFormationModal" (click)="closeEditDemandeFormationModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <h3>Modifier la justification</h3>
+    <div class="form-group">
+      <textarea rows="4" [(ngModel)]="editDemandeFormationForm.justification"></textarea>
+      <p class="error" *ngIf="editFormationRequestError">{{ editFormationRequestError }}</p>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-primary" [disabled]="updatingFormationRequest" (click)="updateDemandeFormation()">
+        {{ updatingFormationRequest ? 'Mise à jour...' : 'Enregistrer' }}
+      </button>
+      <button type="button" class="btn-ghost" (click)="closeEditDemandeFormationModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal cancel formation -->
+<div class="modal-overlay" *ngIf="showCancelDemandeFormationModal" (click)="closeCancelDemandeFormationModal()">
+  <div class="modal modal-sm" (click)="$event.stopPropagation()">
+    <h3>Annuler la demande de formation ?</h3>
+    <div class="modal-actions">
+      <button type="button" class="btn-danger" [disabled]="cancelingFormationRequest" (click)="confirmCancelDemandeFormation()">
+        {{ cancelingFormationRequest ? 'Annulation...' : 'Confirmer' }}
+      </button>
+      <button type="button" class="btn-ghost" (click)="closeCancelDemandeFormationModal()">Retour</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal offre -->
+<div class="modal-overlay" *ngIf="showOffreModal" (click)="showOffreModal = null">
+  <div class="modal modal-lg" (click)="$event.stopPropagation()">
+    <h3>{{ showOffreModal.title }}</h3>
+    <div class="offre-modal-meta">
+      <span><i class="fas fa-building"></i> {{ showOffreModal.dept }}</span>
+      <span><i class="fas fa-layer-group"></i> {{ showOffreModal.niveauLabel }}</span>
+    </div>
+    <p class="offre-desc">{{ showOffreModal.description }}</p>
+    <div class="offre-tags">
+      <span class="offre-tag" *ngFor="let t of showOffreModal.tags">{{ t }}</span>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-primary" *ngIf="!showOffreModal.postule" [disabled]="postingCandidature" (click)="postuler(showOffreModal)">
+        <i class="fas fa-paper-plane"></i> {{ postingCandidature ? 'Envoi...' : 'Postuler' }}
+      </button>
+      <span class="postule-badge" *ngIf="showOffreModal.postule"><i class="fas fa-check"></i> Déjà postulé</span>
+      <button type="button" class="btn-ghost" (click)="showOffreModal = null">Fermer</button>
+    </div>
+  </div>
+</div>

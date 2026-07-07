@@ -3,6 +3,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 import { DemandeConge, CreateDemandeConge, StatutDemande } from '../models/demande-conge';
 
@@ -15,16 +16,17 @@ export class DemandeCongeService {
 
   constructor(private http: HttpClient) { }
 
-  // CREATE
+  // CREATE — backend returns plain text, not JSON
   createDemande(
     employeId: number,
     demande: CreateDemandeConge
-  ): Observable<any> {
+  ): Observable<void> {
 
     return this.http.post(
       `${this.apiUrl}/${employeId}`,
-      demande
-    );
+      demande,
+      { responseType: 'text' }
+    ).pipe(map(() => void 0));
   }
 
   // GET ALL
@@ -45,14 +47,15 @@ export class DemandeCongeService {
     );
   }
 
-  // DELETE
+  // DELETE — backend returns plain text, not JSON
   deleteDemande(
     id: number
-  ): Observable<any> {
+  ): Observable<void> {
 
     return this.http.delete(
-      `${this.apiUrl}/${id}`
-    );
+      `${this.apiUrl}/${id}`,
+      { responseType: 'text' }
+    ).pipe(map(() => void 0));
   }
 
   // UPDATE

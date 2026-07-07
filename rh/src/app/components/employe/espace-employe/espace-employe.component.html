@@ -188,7 +188,7 @@
         </div>
         <div class="conge-row" *ngFor="let c of demandesConge.slice(0,4)">
           <div class="conge-icon" [class]="congeStatusClass(c.statutDemande)">
-            <i class="fas" [class.fa-check]="c.statutDemande === 'APPROUVE'" [class.fa-clock]="c.statutDemande === 'EN_ATTENTE'" [class.fa-times]="c.statutDemande === 'REFUSEE' || c.statutDemande === 'ANNULE'"></i>
+            <i class="fas" [class.fa-check]="c.statutDemande === 'APPROUVEE'" [class.fa-clock]="c.statutDemande === 'EN_ATTENTE'" [class.fa-times]="c.statutDemande === 'REFUSEE' || c.statutDemande === 'ANNULEE'"></i>
           </div>
           <div class="conge-info">
             <span class="conge-type">{{ typeLabel(c.typeConge) }}</span>
@@ -205,22 +205,23 @@
           <div class="card-title"><i class="fas fa-play-circle"></i> Mes formations en cours</div>
           <div class="card-action" (click)="showPage('formations')">Voir toutes</div>
         </div>
-        <div class="grid-3" style="margin-bottom:0;">
-          <div *ngFor="let f of mesFormationsActives" style="padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;">
-            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">
+        <div class="formations-dashboard-grid">
+          <div class="formation-card formation-card-mine formation-card-compact" [class]="'formation-card-' + f.tag" *ngFor="let f of mesFormationsActives">
+            <div class="formation-card-header">
               <span class="formation-tag" [class]="f.tag">{{ f.tagLabel }}</span>
-              <span class="status-pill" [class]="f.status">{{ f.status === 'enrolled' ? 'En cours' : f.status === 'completed' ? 'Terminée' : 'En attente' }}</span>
+              <span class="status-pill" [class]="f.status">{{ formationStatusLabel(f.status) }}</span>
             </div>
-            <div style="font-size:13px;font-weight:600;margin-bottom:4px;">{{ f.title }}</div>
-            <div style="font-size:11px;color:var(--text3);margin-bottom:10px;"><i class="fas fa-clock" style="margin-right:4px;"></i>{{ f.duration }}</div>
-            <div *ngIf="f.progress !== undefined">
-              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px;">
-                <span>Progression</span><span>{{ f.progress }}%</span>
+            <h4>{{ f.title }}</h4>
+            <div class="formation-meta">
+              <span><i class="fas fa-clock"></i>{{ f.duration }}</span>
+            </div>
+            <div class="formation-progress" *ngIf="f.progress !== undefined">
+              <div class="formation-progress-label">
+                <span>Progression</span>
+                <span>{{ f.progress }}%</span>
               </div>
               <div class="progress-bar">
-                <div class="progress-fill" [style.width]="f.progress + '%'"
-                  [style.background]="f.tag === 'tech' ? 'var(--accent)' : f.tag === 'soft' ? 'var(--accent6)' : 'var(--accent4)'">
-                </div>
+                <div class="progress-fill" [style.width]="f.progress + '%'" [class]="'progress-fill-' + f.tag"></div>
               </div>
             </div>
           </div>
@@ -273,7 +274,7 @@
 
         <div class="conge-row" *ngFor="let c of demandesConge">
           <div class="conge-icon" [class]="congeStatusClass(c.statutDemande)">
-            <i class="fas" [class.fa-check]="c.statutDemande === 'APPROUVE'" [class.fa-clock]="c.statutDemande === 'EN_ATTENTE'" [class.fa-times]="c.statutDemande === 'REFUSEE' || c.statutDemande === 'ANNULE'"></i>
+            <i class="fas" [class.fa-check]="c.statutDemande === 'APPROUVEE'" [class.fa-clock]="c.statutDemande === 'EN_ATTENTE'" [class.fa-times]="c.statutDemande === 'REFUSEE' || c.statutDemande === 'ANNULEE'"></i>
           </div>
           <div class="conge-info">
             <span class="conge-type">{{ typeLabel(c.typeConge) }}</span>
@@ -285,7 +286,7 @@
             <button class="btn-sm secondary" *ngIf="c.statutDemande === 'EN_ATTENTE'" (click)="openEditCongeModal(c)">
               <i class="fas fa-edit"></i> Modifier
             </button>
-            <button class="btn-sm danger" *ngIf="c.statutDemande === 'EN_ATTENTE' && c.id" (click)="cancelDemande(c.id)">
+            <button class="btn-sm danger" *ngIf="c.statutDemande === 'EN_ATTENTE' && c.id" (click)="openCancelDemandeModal(c.id)">
               <i class="fas fa-times"></i> Annuler
             </button>
           </div>
@@ -353,21 +354,32 @@
 
       <!-- Catalogue -->
       <div *ngIf="activeFormationTab === 'catalogue'">
+        <div class="empty-state" *ngIf="formationsCatalogue.length === 0 && !loadingFormations">
+          <i class="fas fa-book-open"></i>
+          <p>Aucune formation disponible dans le catalogue pour le moment.</p>
+        </div>
         <div class="formations-grid">
-          <div class="formation-card" *ngFor="let f of formationsCatalogue">
-            <span class="formation-tag" [class]="f.tag">{{ f.tagLabel }}</span>
-            <h4>{{ f.title }}</h4>
-            <p>{{ f.desc }}</p>
-            <div class="formation-meta" style="margin-bottom:14px;">
-              <span><i class="fas fa-clock"></i>{{ f.duration }}</span>
-              <span><i class="fas fa-users"></i>{{ f.enrolled }} inscrits</span>
-              <span><i class="fas fa-star" style="color:var(--accent4);"></i>{{ f.rating }}</span>
+          <div class="formation-card formation-card-catalogue" [class]="'formation-card-' + f.tag" *ngFor="let f of formationsCatalogue">
+            <div class="formation-card-top">
+              <div class="formation-card-icon">
+                <i class="fas fa-graduation-cap"></i>
+              </div>
+              <span class="formation-tag" [class]="f.tag">{{ f.tagLabel }}</span>
+            </div>
+            <div class="formation-card-body">
+              <h4>{{ f.title }}</h4>
+              <p>{{ f.desc }}</p>
+              <div class="formation-meta">
+                <span class="formation-meta-chip"><i class="fas fa-clock"></i>{{ f.duration }}</span>
+                <span class="formation-meta-chip"><i class="fas fa-users"></i>{{ f.enrolled }} inscrits</span>
+                <span class="formation-meta-chip formation-meta-rating"><i class="fas fa-star"></i>{{ f.rating }}</span>
+              </div>
             </div>
             <button type="button"
-                    class="btn-sm primary"
-                    style="width:100%;justify-content:center;"
+                    class="formation-card-cta"
                     (click)="openDemandeFormationModal(f)">
-              <i class="fas fa-paper-plane"></i> Demander inscription
+              <i class="fas fa-paper-plane"></i>
+              Demander inscription
             </button>
           </div>
         </div>
@@ -380,33 +392,34 @@
           <p>Vous n'êtes inscrit à aucune formation pour le moment.<br>Explorez le catalogue pour en demander une.</p>
         </div>
         <div class="formations-grid">
-          <div class="formation-card" *ngFor="let f of mesFormationsActives" (click)="showFormationModal = f">
-            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">
+          <div class="formation-card formation-card-mine" [class]="'formation-card-' + f.tag" *ngFor="let f of mesFormationsActives" (click)="showFormationModal = f">
+            <div class="formation-card-header">
               <span class="formation-tag" [class]="f.tag">{{ f.tagLabel }}</span>
-              <span class="status-pill" [class]="f.status">{{ f.status === 'enrolled' ? 'En cours' : f.status === 'completed' ? 'Terminée' : 'En attente' }}</span>
+              <span class="status-pill" [class]="f.status">{{ formationStatusLabel(f.status) }}</span>
             </div>
-            <h4>{{ f.title }}</h4>
-            <p>{{ f.desc }}</p>
-            <div class="formation-justification" *ngIf="f.justification">
-              <span>Justification</span>
-              <p>{{ f.justification }}</p>
-            </div>
-            <div *ngIf="f.progress !== undefined" style="margin-bottom:12px;">
-              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:5px;">
-                <span>Progression</span><span>{{ f.progress }}%</span>
+            <div class="formation-card-body">
+              <h4>{{ f.title }}</h4>
+              <p>{{ f.desc }}</p>
+              <div class="formation-justification" *ngIf="f.justification">
+                <span>Justification</span>
+                <p>{{ f.justification }}</p>
               </div>
-              <div class="progress-bar">
-                <div class="progress-fill" [style.width]="f.progress + '%'"
-                  [style.background]="f.tag === 'tech' ? 'var(--accent)' : f.tag === 'soft' ? 'var(--accent6)' : 'var(--accent4)'">
+              <div class="formation-progress" *ngIf="f.progress !== undefined">
+                <div class="formation-progress-label">
+                  <span>Progression</span>
+                  <span>{{ f.progress }}%</span>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-fill" [style.width]="f.progress + '%'" [class]="'progress-fill-' + f.tag"></div>
                 </div>
               </div>
+              <div class="formation-meta">
+                <span class="formation-meta-chip"><i class="fas fa-clock"></i>{{ f.duration }}</span>
+                <span class="formation-meta-chip" *ngIf="f.dateInscription"><i class="fas fa-calendar-plus"></i>{{ formatDate(f.dateInscription!) }}</span>
+                <span class="formation-meta-chip formation-meta-success" *ngIf="f.dateCompletion"><i class="fas fa-check-circle"></i>{{ formatDate(f.dateCompletion!) }}</span>
+              </div>
             </div>
-            <div class="formation-meta">
-              <span><i class="fas fa-clock"></i>{{ f.duration }}</span>
-              <span *ngIf="f.dateInscription"><i class="fas fa-calendar-plus"></i>{{ formatDate(f.dateInscription!) }}</span>
-              <span *ngIf="f.dateCompletion" style="color:var(--accent3);"><i class="fas fa-check-circle"></i>{{ formatDate(f.dateCompletion!) }}</span>
-            </div>
-            <div class="formation-request-actions" *ngIf="f.status === 'pending'">
+            <div class="formation-request-actions" *ngIf="f.status === 'pending'" (click)="$event.stopPropagation()">
               <button type="button" class="btn-sm outline" (click)="openEditDemandeFormationModal($event, f)">
                 <i class="fas fa-pen"></i> Modifier justification
               </button>
@@ -528,37 +541,73 @@
 </main>
 
 <!-- ══════════ MODAL DEMANDE CONGÉ ══════════ -->
-<div class="modal-overlay open" *ngIf="showCongeModal" (click)="closeCongeModal()">
-  <div class="modal" (click)="$event.stopPropagation()">
-    <h2>🌴 {{ editingConge ? 'Modifier la demande de congé' : 'Nouvelle demande de congé' }}</h2>
-    <p>Complétez le formulaire ci-dessous. Votre responsable sera notifié automatiquement.</p>
-
-    <div class="form-group">
-      <label>Type de congé</label>
-      <select [(ngModel)]="congeForm.type">
-        <option *ngFor="let type of congeTypeOptions" [value]="type">{{ typeLabel(type) }}</option>
-      </select>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-      <div class="form-group">
-        <label>Date de début</label>
-        <input type="date" [(ngModel)]="congeForm.dateDebut">
+<div class="modal-overlay conge-modal-overlay open" *ngIf="showCongeModal" (click)="closeCongeModal()">
+  <div class="conge-modal" (click)="$event.stopPropagation()">
+    <div class="conge-modal-header">
+      <div class="conge-modal-icon">
+        <i class="fas fa-umbrella-beach"></i>
       </div>
-      <div class="form-group">
-        <label>Date de fin</label>
-        <input type="date" [(ngModel)]="congeForm.dateFin">
+      <div class="conge-modal-heading">
+        <span class="conge-modal-eyebrow">{{ editingConge ? 'Modification' : 'Nouvelle demande' }}</span>
+        <h2>{{ editingConge ? 'Modifier la demande de congé' : 'Demande de congé' }}</h2>
+        <p>Votre responsable sera notifié automatiquement après soumission.</p>
       </div>
     </div>
 
-    <div style="background:rgba(108,99,255,0.08);border:1px solid rgba(108,99,255,0.15);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--text2);margin-bottom:4px;">
-      <i class="fas fa-info-circle" style="color:var(--accent2);margin-right:6px;"></i>
-      Solde disponible : <strong style="color:var(--accent3);">{{ soldeRestant }} jours</strong>
+    <div class="conge-modal-body">
+      <div class="form-group">
+        <label>Type de congé</label>
+        <select [(ngModel)]="congeForm.type">
+          <option *ngFor="let type of congeTypeOptions" [value]="type">{{ typeLabel(type) }}</option>
+        </select>
+      </div>
+
+      <div class="conge-date-grid">
+        <div class="form-group">
+          <label>Date de début</label>
+          <input type="date" [(ngModel)]="congeForm.dateDebut">
+        </div>
+        <div class="form-group">
+          <label>Date de fin</label>
+          <input type="date" [(ngModel)]="congeForm.dateFin">
+        </div>
+      </div>
+
+      <div class="conge-solde-note">
+        <i class="fas fa-info-circle"></i>
+        <span>Solde disponible : <strong>{{ soldeRestant }} jours</strong></span>
+      </div>
     </div>
 
-    <div class="modal-actions">
-      <button class="btn-primary" (click)="submitConge()"><i class="fas fa-paper-plane"></i> {{ editingConge ? 'Modifier' : 'Soumettre' }}</button>
-      <button class="btn-secondary" (click)="closeCongeModal()">Annuler</button>
+    <div class="conge-modal-actions">
+      <button type="button" class="conge-btn conge-btn-primary" [disabled]="submittingConge" (click)="submitConge()">
+        <i class="fas fa-paper-plane"></i>
+        {{ submittingConge ? 'Envoi...' : (editingConge ? 'Enregistrer' : 'Soumettre') }}
+      </button>
+      <button type="button" class="conge-btn conge-btn-ghost" (click)="closeCongeModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirmation annulation demande congé -->
+<div class="modal-overlay conge-modal-overlay open" *ngIf="showCancelDemandeModal" (click)="closeCancelDemandeModal()">
+  <div class="conge-modal conge-modal-compact" (click)="$event.stopPropagation()">
+    <div class="conge-modal-header conge-modal-header-center">
+      <div class="conge-modal-icon conge-modal-icon-warn">
+        <i class="fas fa-calendar-times"></i>
+      </div>
+      <div class="conge-modal-heading">
+        <span class="conge-modal-eyebrow">Annulation</span>
+        <h2>Confirmer l'annulation</h2>
+        <p>Voulez-vous vraiment annuler cette demande de congé ? Cette action est définitive.</p>
+      </div>
+    </div>
+    <div class="conge-modal-actions conge-modal-actions-center">
+      <button type="button" class="conge-btn conge-btn-danger" (click)="confirmCancelDemande()" [disabled]="cancelingDemande">
+        <i class="fas fa-trash-alt"></i>
+        {{ cancelingDemande ? 'Annulation...' : 'Confirmer' }}
+      </button>
+      <button type="button" class="conge-btn conge-btn-ghost" (click)="closeCancelDemandeModal()">Retour</button>
     </div>
   </div>
 </div>
@@ -606,16 +655,34 @@
   </div>
 </div>
 
-<!-- Success modal -->
-<div class="modal-overlay open" *ngIf="showSuccessModal" (click)="closeSuccessModal()">
-  <div class="modal" (click)="$event.stopPropagation()" style="max-width:420px;">
-    <div class="modal-header">
-      <h2>Succès</h2>
-      <p style="font-size:13px;color:var(--text3);margin-top:8px;">{{ successModalMessage }}</p>
-    </div>
-    <div class="modal-actions" style="justify-content:center;">
-      <button class="btn-primary" (click)="closeSuccessModal()">OK</button>
-    </div>
+<!-- Feedback modal (success / error) -->
+<div class="modal-overlay open" [class.conge-modal-overlay]="successModalConge" *ngIf="showSuccessModal" (click)="closeSuccessModal()">
+  <div class="modal" [class.conge-modal]="successModalConge" [class.conge-modal-compact]="successModalConge" [class.conge-feedback-modal]="successModalConge" (click)="$event.stopPropagation()">
+    <ng-container *ngIf="successModalConge; else defaultFeedbackModal">
+      <div class="conge-modal-header conge-modal-header-center">
+        <div class="conge-modal-icon" [class.conge-modal-icon-success]="successModalType === 'success'" [class.conge-modal-icon-error]="successModalType === 'error'">
+          <i class="fas" [class.fa-check-circle]="successModalType === 'success'" [class.fa-exclamation-circle]="successModalType === 'error'"></i>
+        </div>
+        <div class="conge-modal-heading">
+          <span class="conge-modal-eyebrow">{{ successModalType === 'success' ? 'Confirmé' : 'Attention' }}</span>
+          <h2>{{ successModalType === 'success' ? 'Succès' : 'Erreur' }}</h2>
+          <p>{{ successModalMessage }}</p>
+        </div>
+      </div>
+      <div class="conge-modal-actions conge-modal-actions-center">
+        <button type="button" class="conge-btn conge-btn-primary" (click)="closeSuccessModal()">Compris</button>
+      </div>
+    </ng-container>
+    <ng-template #defaultFeedbackModal>
+      <div class="modal-header" [ngClass]="{'error': successModalType==='error'}">
+        <h2 *ngIf="successModalType==='success'">Succès</h2>
+        <h2 *ngIf="successModalType==='error'">Erreur</h2>
+        <p style="font-size:13px;color:var(--text3);margin-top:8px;">{{ successModalMessage }}</p>
+      </div>
+      <div class="modal-actions" style="justify-content:center;">
+        <button class="btn-primary" (click)="closeSuccessModal()">OK</button>
+      </div>
+    </ng-template>
   </div>
 </div>
 

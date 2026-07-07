@@ -10,6 +10,7 @@ import java.util.Date;
 @Setter
 public class employeDto {
     private Long id;
+    private String role;
     private String nom;
     private String prenom;
     private String email;

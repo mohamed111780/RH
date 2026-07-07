@@ -1,7 +1,7 @@
 package com.PlateformRH.Jwt;
 
 import com.PlateformRH.Employe.employe;
-import com.PlateformRH.Employe.UtilisateurServiceImpl;
+import com.PlateformRH.Employe.EmployeServiceImpl;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 @Transactional
 public class JwtService {
     private final String ENCRIPTION_KEY = "608f36e92dc66d97d5933f0e6371493cb4fc05b1aa8f8de64014732472303a7c";
-    private UtilisateurServiceImpl userService;
+    private EmployeServiceImpl employeService;
     private JwtRepository jwtRepository;
 
     public Jwt tokenByValeur(String valeur) {
@@ -35,7 +35,7 @@ public class JwtService {
     }
 
     public Map<String, String> generate(String username) {
-        employe utilisateur = userService.loadUserByUsername(username);
+        employe utilisateur = employeService.loadUserByUsername(username);
         this.disableTokens(utilisateur);
         final Map<String, String> jwtMap = generateJwt(utilisateur);
         final Jwt jwt = Jwt.builder()

@@ -14,6 +14,7 @@ import { Candidature as BackendCandidature } from '../../../models/candidature';
 import { CandidatureService } from '../../../services/candidature.service';
 import { FormationService } from '../../../services/formation.service';
 import { EmployeService } from '../../../services/employe.service';
+import { MonEspaceCollaborateurComponent } from '../../shared/mon-espace-collaborateur/mon-espace-collaborateur.component';
 
 interface Employee {
   initials: string;
@@ -76,7 +77,7 @@ interface CandidaturesData {
 @Component({
   selector: 'app-espace-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MonEspaceCollaborateurComponent],
   templateUrl: './espace-admin.component.html',
   styleUrls: ['./espace-admin.component.css']
 })
@@ -91,7 +92,8 @@ export class EspaceAdminComponent implements OnInit {
     formations: 'Formations',
     offres: 'Offres & Recrutement IA',
     analytics: 'Analytique IA',
-    parametres: 'Parametres'
+    parametres: 'Parametres',
+    'mon-espace': 'Mes Demandes & Mobilité'
   };
 
   admin = {

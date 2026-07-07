@@ -5,8 +5,6 @@ import com.PlateformRH.Employe.employe;
 import com.PlateformRH.Formation.FormationRepository;
 import com.PlateformRH.Formation.formation;
 import com.PlateformRH.Employe.Role;
-import com.PlateformRH.Employe.UtilisateurRepository;
-import com.PlateformRH.Employe.employe;
 import com.PlateformRH.candidature.Candidature;
 import com.PlateformRH.candidature.CandidatureRepository;
 import com.PlateformRH.demandeConge.DemandeConge;
@@ -30,7 +28,6 @@ public class ChatbotDataService {
 
     private static final int MAX_ROWS_PER_MODULE = 8;
 
-    private final UtilisateurRepository utilisateurRepository;
     private final EmployeRepository employeRepository;
     private final FormationRepository formationRepository;
     private final DemandeCongeRepository demandeCongeRepository;
@@ -129,7 +126,7 @@ public class ChatbotDataService {
     }
 
     private void appendUtilisateurContext(StringBuilder context) {
-        List<employe> utilisateurs = utilisateurRepository.findAll();
+        List<employe> utilisateurs = employeRepository.findAll();
         Map<Role, Long> usersByRole = utilisateurs.stream()
                 .filter(user -> user.getRole() != null)
                 .collect(Collectors.groupingBy(employe::getRole, Collectors.counting()));

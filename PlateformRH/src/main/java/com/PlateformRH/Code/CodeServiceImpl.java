@@ -1,8 +1,8 @@
 package com.PlateformRH.Code;
 
 import com.PlateformRH.Employe.employe;
-import com.PlateformRH.Employe.UtilisateurRepository;
-import com.PlateformRH.Employe.UtilisateurServiceImpl;
+import com.PlateformRH.Employe.EmployeRepository;
+import com.PlateformRH.Employe.EmployeServiceImpl;
 import com.PlateformRH.config.EmailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -21,13 +21,13 @@ import static java.time.temporal.ChronoUnit.MINUTES;
 public class CodeServiceImpl implements CodeService{
     private final CodeRepository codeRepository;
     private final EmailService emailService;
-    private final UtilisateurServiceImpl utilisateurService;
+    private final EmployeServiceImpl employeService;
     private  final PasswordEncoder passwordEncoder;
-    private final UtilisateurRepository utilisateurRepository;
+    private final EmployeRepository employeRepository;
 
     @Override
     public void codeActivation(String username){
-        employe utilisateur= utilisateurService.loadUserByUsername(username);
+        employe utilisateur= employeService.loadUserByUsername(username);
 
         if (utilisateur == null) {
             throw new UsernameNotFoundException("User not found with username: " + username);
@@ -98,12 +98,12 @@ public class CodeServiceImpl implements CodeService{
         String email = parametres.get("email");
         String password = parametres.get("password");
         // Charger l'utilisateur par email
-        employe utilisateur=utilisateurService.loadUserByUsername(email);
+        employe utilisateur=employeService.loadUserByUsername(email);
 
         // Mettre à jour le mot de passe si fourni
         if (password != null && !password.isEmpty()) {
             String hashedPassword = passwordEncoder.encode(password);
             utilisateur.setMotdepasse(hashedPassword);
-            utilisateurRepository.save(utilisateur);}
+            employeRepository.save(utilisateur);}
     }
 }

@@ -111,7 +111,7 @@ public class DemandeCongeServiceImpl implements DemandeCongeService {
             demande.setType(TypeConge.valueOf(dto.getTypeConge()));
         }
         if (dto.getStatutDemande() != null) {
-            demande.setStatut(StatutDemande.valueOf(dto.getStatutDemande()));
+            demande.setStatut(parseStatut(dto.getStatutDemande()));
         }
 
         // Sauvegarder les modifications
@@ -133,10 +133,8 @@ public class DemandeCongeServiceImpl implements DemandeCongeService {
                 .toList();
     }
     public List<DemandeCongeDTO> getDemandesByStatut(String statut) {
-
         try {
-            // convertir String → Enum
-            StatutDemande statutDemande = StatutDemande.valueOf(statut.toUpperCase());
+            StatutDemande statutDemande = parseStatut(statut);
 
             List<DemandeConge> demandes = demandeCongeRepository.findByStatut(statutDemande);
 
@@ -155,11 +153,8 @@ public class DemandeCongeServiceImpl implements DemandeCongeService {
         DemandeConge demande = demandeCongeRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Demande non trouvee"));
 
-        // convertir String → Enum (sans try/catch)
         try {
-            StatutDemande newStatut = StatutDemande.valueOf(statut.toUpperCase());
-
-            // changer le statut
+            StatutDemande newStatut = parseStatut(statut);
             demande.setStatut(newStatut);
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Statut invalide");
@@ -167,6 +162,21 @@ public class DemandeCongeServiceImpl implements DemandeCongeService {
 
         // sauvegarder
         return mapToDto(demandeCongeRepository.save(demande));
+    }
+
+    private StatutDemande parseStatut(String statut) {
+        if (statut == null || statut.isBlank()) {
+            throw new IllegalArgumentException("Statut invalide");
+        }
+
+        String normalized = statut.trim().toUpperCase();
+        return switch (normalized) {
+            case "APPROUVE", "APPROUVEE" -> StatutDemande.APPROUVEE;
+            case "ANNULE", "ANNULEE" -> StatutDemande.ANNULEE;
+            case "REFUSEE" -> StatutDemande.REFUSEE;
+            case "EN_ATTENTE" -> StatutDemande.EN_ATTENTE;
+            default -> StatutDemande.valueOf(normalized);
+        };
     }
 
     @Override

@@ -2,6 +2,8 @@ export interface Employe {
 
   id?: number;
 
+  role?: string;
+
   nom: string;
 
   prenom: string;
@@ -26,6 +28,8 @@ export interface Employe {
 
 }
 export interface CreateEmploye {
+
+  role?: string;
 
   nom: string;
 

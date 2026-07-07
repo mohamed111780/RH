@@ -40,11 +40,13 @@ export const routes: Routes = [
     canActivate: [AuthGuard, RoleGuard],
     data: { role: 'RH' }
   },
+
+  // MANAGER = ADMIN
   {
     path: 'admin/dashboard',
     component: EspaceAdminComponent,
     canActivate: [AuthGuard, RoleGuard],
-    data: { role: 'ADMIN' }
+    data: { roles: ['ADMIN', 'MANAGER'] }
   },
   { path: 'offre/:id', component: OfferDetailComponent },
   { path: 'postuler/:id', component: ApplyFormComponent },

@@ -1,5 +1,5 @@
 package com.PlateformRH.Employe;
 
 public enum Role {
-    ADMIN, RH, EMPLOYE
+    ADMIN, MANAGER, RH, EMPLOYE
 }

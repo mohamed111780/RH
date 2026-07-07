@@ -1,4 +1,4 @@
-﻿import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
@@ -109,6 +109,8 @@ export class EspaceEmployeComponent implements OnInit {
   private toastTimer: any;
   showSuccessModal = false;
   successModalMessage = '';
+  successModalType: 'success' | 'error' = 'success';
+  successModalConge = false;
   private successModalTimer: any;
   showCongeModal    = false;
   showOffreModal: OffreInterne | null = null;
@@ -163,7 +165,8 @@ export class EspaceEmployeComponent implements OnInit {
     private demandeCongeService: DemandeCongeService,
     private offreEmploiService: OffreEmploiService,
     private candidatureService: CandidatureService,
-    private router: Router
+    private router: Router,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -232,10 +235,12 @@ export class EspaceEmployeComponent implements OnInit {
       next: (formations) => {
         this.formations = formations.map(f => this.mapFormationFromApi(f));
         this.loadDemandesFormation();
+        this.cdr.detectChanges();
       },
       error: () => {
         this.loadingFormations = false;
         this.showToast('Impossible de charger les formations');
+        this.cdr.detectChanges();
       }
     });
   }
@@ -250,10 +255,12 @@ export class EspaceEmployeComponent implements OnInit {
       next: (demandes) => {
         this.applyDemandesFormation(demandes);
         this.loadingFormations = false;
+        this.cdr.detectChanges();
       },
       error: () => {
         this.loadingFormations = false;
         this.showToast('Impossible de charger vos demandes de formation');
+        this.cdr.detectChanges();
       }
     });
   }
@@ -312,11 +319,14 @@ export class EspaceEmployeComponent implements OnInit {
         this.submittingConge = false;
         this.closeCongeModal();
         this.loadDemandesConge();
-        this.showToast('âœ… Demande de congÃ© soumise avec succÃ¨s');
+        this.cdr.detectChanges();
+        this.openSuccessModal('Demande de congé soumise avec succès', 'success', true);
       },
       error: (error: HttpErrorResponse) => {
         this.submittingConge = false;
-        this.showToast(this.getCongeErrorMessage(error, 'Erreur lors de la creation de la demande de conge'));
+        const msg = this.getCongeErrorMessage(error, 'Erreur lors de la creation de la demande de conge');
+        this.openSuccessModal(msg, 'error', true);
+        this.cdr.detectChanges();
       }
     });
   }
@@ -343,10 +353,12 @@ export class EspaceEmployeComponent implements OnInit {
         this.closeCongeModal();
         this.loadDemandesConge();
         this.showToast('Demande de congÃ© mise a jour');
+        this.cdr.detectChanges();
       },
       error: (error: HttpErrorResponse) => {
         this.submittingConge = false;
         this.showToast(this.getCongeErrorMessage(error, 'Erreur lors de la mise a jour de la demande'));
+        this.cdr.detectChanges();
       }
     });
   }
@@ -364,14 +376,38 @@ export class EspaceEmployeComponent implements OnInit {
     return fallback;
   }
 
-  cancelDemande(id: number): void {
-    this.demandeCongeService.deleteDemande(id).subscribe({
+  // Confirmation modal for cancelling a leave request
+  showCancelDemandeModal = false;
+  cancelingDemandeId: number | null = null;
+  cancelingDemande = false;
+
+  openCancelDemandeModal(id: number): void {
+    this.cancelingDemandeId = id;
+    this.showCancelDemandeModal = true;
+  }
+
+  closeCancelDemandeModal(): void {
+    this.showCancelDemandeModal = false;
+    this.cancelingDemandeId = null;
+  }
+
+  confirmCancelDemande(): void {
+    if (!this.cancelingDemandeId) return;
+    this.cancelingDemande = true;
+    this.demandeCongeService.deleteDemande(this.cancelingDemandeId).subscribe({
       next: () => {
+        this.cancelingDemande = false;
+        this.showCancelDemandeModal = false;
+        this.cancelingDemandeId = null;
         this.loadDemandesConge();
-        this.showToast('Demande annulee');
+        this.openSuccessModal('Demande annulée', 'success', true);
+        this.cdr.detectChanges();
       },
-      error: () => {
-        this.showToast('Erreur lors de l annulation de la demande');
+      error: (error: HttpErrorResponse) => {
+        this.cancelingDemande = false;
+        const msg = this.getCongeErrorMessage(error, 'Erreur lors de l annulation de la demande');
+        this.openSuccessModal(msg, 'error', true);
+        this.cdr.detectChanges();
       }
     });
   }
@@ -386,10 +422,12 @@ export class EspaceEmployeComponent implements OnInit {
       next: (demandes) => {
         this.demandesConge = demandes;
         this.loadingDemandesConge = false;
+        this.cdr.detectChanges();
       },
       error: () => {
         this.loadingDemandesConge = false;
         this.showToast('Impossible de charger vos demandes de congÃ©');
+        this.cdr.detectChanges();
       }
     });
   }
@@ -435,17 +473,21 @@ export class EspaceEmployeComponent implements OnInit {
         this.showOffreModal = null;
         this.loadOffresInternes();
         this.openSuccessModal(`Votre candidature pour "${offre.title}" a bien été envoyée !`);
+        this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('postuler error', err);
         this.postingCandidature = false;
         this.showToast(String(err?.error?.message || err?.error || 'Erreur lors de l\'envoi de la candidature'));
+        this.cdr.detectChanges();
       }
     });
   }
 
-  openSuccessModal(message: string): void {
+  openSuccessModal(message: string, type: 'success' | 'error' = 'success', congeTheme = false): void {
+    this.successModalConge = congeTheme;
     this.successModalMessage = message;
+    this.successModalType = type;
     this.showSuccessModal = true;
     clearTimeout(this.successModalTimer);
     this.successModalTimer = setTimeout(() => this.closeSuccessModal(), 3600);
@@ -454,6 +496,7 @@ export class EspaceEmployeComponent implements OnInit {
   closeSuccessModal(): void {
     this.showSuccessModal = false;
     this.successModalMessage = '';
+    this.successModalConge = false;
     clearTimeout(this.successModalTimer);
   }
 
@@ -526,6 +569,7 @@ export class EspaceEmployeComponent implements OnInit {
         this.activeFormationTab = 'mes';
         this.loadDemandesFormation();
         this.showToast('Demande inscription envoyee');
+        this.cdr.detectChanges();
       },
       error: (err) => {
         this.submittingFormationRequest = false;
@@ -535,6 +579,7 @@ export class EspaceEmployeComponent implements OnInit {
           err?.error?.details ||
           'Erreur lors de envoi de la demande';
         this.setFormationRequestError(String(apiMessage));
+        this.cdr.detectChanges();
       }
     });
   }
@@ -587,6 +632,7 @@ export class EspaceEmployeComponent implements OnInit {
         this.closeEditDemandeFormationModal();
         this.loadDemandesFormation();
         this.showToast('Justification mise a jour');
+        this.cdr.detectChanges();
       },
       error: (err) => {
         this.updatingFormationRequest = false;
@@ -595,6 +641,7 @@ export class EspaceEmployeComponent implements OnInit {
           err?.error?.error ||
           'Erreur lors de la modification'
         );
+        this.cdr.detectChanges();
       }
     });
   }
@@ -639,10 +686,12 @@ export class EspaceEmployeComponent implements OnInit {
         this.closeCancelDemandeFormationModal();
         this.loadDemandesFormation();
         this.showToast('Demande annulee');
+        this.cdr.detectChanges();
       },
       error: () => {
         this.cancelingFormationRequest = false;
         this.showToast('Erreur lors de annulation de la demande');
+        this.cdr.detectChanges();
       }
     });
   }
@@ -770,9 +819,9 @@ export class EspaceEmployeComponent implements OnInit {
   statusLabel(s: StatutDemande): string {
     const labels: Record<StatutDemande, string> = {
       EN_ATTENTE: 'En attente',
-      APPROUVE: 'ApprouvÃ©',
-      REFUSEE: 'RefusÃ©',
-      ANNULE: 'AnnulÃ©'
+      APPROUVEE: 'Approuvé',
+      REFUSEE: 'Refusé',
+      ANNULEE: 'Annulé'
     };
     return labels[s] || s;
   }
@@ -794,9 +843,9 @@ export class EspaceEmployeComponent implements OnInit {
   congeStatusClass(status: StatutDemande): string {
     const mapping: Record<StatutDemande, string> = {
       EN_ATTENTE: 'pending',
-      APPROUVE: 'approved',
+      APPROUVEE: 'approved',
       REFUSEE: 'rejected',
-      ANNULE: 'rejected'
+      ANNULEE: 'rejected'
     };
     return mapping[status] || status.toLowerCase();
   }

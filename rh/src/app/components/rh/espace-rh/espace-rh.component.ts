@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
@@ -13,14 +13,17 @@ import { AuthService } from '../../../services/auth/auth.service';
 import { DemandeCongeService } from '../../../services/demande-conge.service';
 import { EmployeService } from '../../../services/employe.service';
 import { FormationService } from '../../../services/formation.service';
+import { DemandeFormationService } from '../../../services/demande-formation.service';
 import { OffreEmploiService } from '../../../services/offre-emploi.service';
 import { CandidatureService } from '../../../services/candidature.service';
+import { MonEspaceCollaborateurComponent } from '../../shared/mon-espace-collaborateur/mon-espace-collaborateur.component';
 
 export interface Employee {
   id: number;
   matricule: string;
   name: string;
   initials: string;
+  poste: string;
   role: string;
   dept: string;
   status: 'active' | 'leave' | 'remote' | 'absent';
@@ -36,6 +39,7 @@ export interface Employee {
 
 interface EmployeeForm {
   id?: number;
+  role: string;
   nom: string;
   prenom: string;
   email: string;
@@ -63,6 +67,7 @@ export interface JobOffer {
   contrat: string;
   offreType: OffreType;
   statut: OffreStatut;
+  postule?: boolean;
 }
 
 export interface Candidature {
@@ -86,6 +91,7 @@ export interface KanbanData {
 }
 
 export interface Formation {
+  id?: number | string;
   tag: 'tech' | 'soft' | 'lead';
   tagLabel: string;
   title: string;
@@ -94,6 +100,10 @@ export interface Formation {
   enrolled: number;
   rating: string;
   progress: number;
+  status?: 'available' | 'pending' | 'enrolled' | 'completed';
+  demandeId?: number;
+  justification?: string;
+  dateInscription?: string;
 }
 
 export interface ActivityItem {
@@ -114,7 +124,7 @@ export interface AiInsight {
 @Component({
   selector: 'app-espace-rh',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MonEspaceCollaborateurComponent],
   templateUrl: './espace-rh.component.html',
   styleUrls: ['./espace-rh.component.css']
 })
@@ -124,9 +134,12 @@ export class EspaceRhComponent implements OnInit {
     private employeService: EmployeService,
     private demandeCongeService: DemandeCongeService,
     private formationService: FormationService,
+    private demandeFormationService: DemandeFormationService,
     private offreEmploiService: OffreEmploiService,
     private candidatureService: CandidatureService,
     private router: Router
+    ,
+    private cdr: ChangeDetectorRef
   ) {}
 
   // ───────────────────────── STATE ─────────────────────────
@@ -134,7 +147,13 @@ export class EspaceRhComponent implements OnInit {
   pageTitle: string = 'Vue d\'ensemble';
   toastMessage: string = '';
   toastVisible: boolean = false;
+  toastType: 'success' | 'error' | 'info' = 'success';
   private toastTimer: any;
+  // Feedback modal for create/cancel actions
+  showFeedbackModal: boolean = false;
+  feedbackModalMessage: string = '';
+  feedbackModalType: 'success' | 'error' = 'success';
+  private feedbackModalTimer: any;
 
   // Profil photo (aperçu local)
   rhPhotoUrl: string | null = null;
@@ -163,6 +182,29 @@ export class EspaceRhComponent implements OnInit {
   confirmDeleteEmployee: Employee | null = null;
 
   employeeForm: EmployeeForm = this.getEmptyEmployeeForm();
+  readonly employeeRoleOptions = ['ADMIN', 'MANAGER', 'RH', 'EMPLOYE'];
+
+  // Mon espace RH
+  currentUserId: number | null = null;
+  userDisplayName: string = 'Responsable RH';
+  showCongeForm: boolean = false;
+  editingConge: DemandeConge | null = null;
+  congeForm: { dateDebut: string; dateFin: string; type: TypeConge } = { dateDebut: '', dateFin: '', type: 'PAYE' };
+  demandesConge: DemandeConge[] = [];
+  loadingDemandesConge: boolean = false;
+  submittingConge: boolean = false;
+  loadingMesFormations: boolean = false;
+  selectedFormationForRequest: Formation | null = null;
+  demandeFormationForm = { justification: '' };
+  selectedFormationRequest: Formation | null = null;
+  editDemandeFormationForm = { justification: '' };
+  submittingFormationRequest: boolean = false;
+  updatingFormationRequest: boolean = false;
+  cancellingFormationRequest: boolean = false;
+  formationRequestError: string = '';
+  formationRequestSuccess: string = '';
+  loadingMesOffres: boolean = false;
+  postingOffreCandidatureId: number | null = null;
 
   // Modal congé
   modalCongeOpen: boolean = false;
@@ -195,6 +237,8 @@ export class EspaceRhComponent implements OnInit {
   // Calendrier mois/année
   calMonth: number = new Date().getMonth();
   calYear: number = new Date().getFullYear();
+  readonly congeTypeOptions: TypeConge[] = Object.keys(TYPE_LABELS) as TypeConge[];
+  readonly TYPE_LABELS = TYPE_LABELS;
 
   // Calendar interaction state
   selectedCalendarDate: string | null = null; // ISO yyyy-mm-dd
@@ -213,6 +257,8 @@ export class EspaceRhComponent implements OnInit {
   leaveRequests: DemandeConge[] = [];
 
   formations: Formation[] = [];
+  mesFormations: Formation[] = [];
+  mesOffresInternes: JobOffer[] = [];
 
   readonly activityFeed: ActivityItem[] = [
     { color: 'var(--teal)', message: '🤖 IA a trié 8 candidatures pour <strong>Lead Dev React</strong>', time: 'Il y a 2h' },
@@ -328,11 +374,13 @@ export class EspaceRhComponent implements OnInit {
           this.modalFormationOpen = false;
           this.creatingFormation = false;
           this.editingFormationId = null;
+          this.cdr.detectChanges();
         },
         error: (err: HttpErrorResponse) => {
           const msg = err?.error?.message || 'Erreur lors de la mise à jour';
           this.showToast(msg);
           this.creatingFormation = false;
+          this.cdr.detectChanges();
         }
       });
       return;
@@ -345,11 +393,13 @@ export class EspaceRhComponent implements OnInit {
         if (typeof (this as any).loadFormations === 'function') (this as any).loadFormations();
         this.modalFormationOpen = false;
         this.creatingFormation = false;
+        this.cdr.detectChanges();
       },
       error: (err: HttpErrorResponse) => {
         const msg = err?.error?.message || 'Erreur lors de la création';
         this.showToast(msg);
         this.creatingFormation = false;
+        this.cdr.detectChanges();
       }
     });
   }
@@ -382,10 +432,12 @@ export class EspaceRhComponent implements OnInit {
       next: () => {
         this.showToast('Formation supprimée');
         if (typeof (this as any).loadFormations === 'function') (this as any).loadFormations();
+        this.cdr.detectChanges();
       },
       error: (err: HttpErrorResponse) => {
         const msg = err?.error?.message || 'Erreur lors de la suppression';
         this.showToast(msg);
+        this.cdr.detectChanges();
       }
     });
   }
@@ -491,6 +543,27 @@ export class EspaceRhComponent implements OnInit {
     return map[status] || { cls: '', label: status };
   }
 
+  getRoleLabel(role?: string): string {
+    const labels: Record<string, string> = {
+      ADMIN: 'Administrateur',
+      MANAGER: 'Manager',
+      RH: 'RH',
+      EMPLOYE: 'Employé',
+    };
+    return labels[this.normalizeEmployeeRole(role)] || role || 'Employé';
+  }
+
+  getRolePill(role?: string): { cls: string; label: string } {
+    const normalized = this.normalizeEmployeeRole(role);
+    const map: Record<string, string> = {
+      ADMIN: 'admin',
+      MANAGER: 'manager',
+      RH: 'rh',
+      EMPLOYE: 'employe',
+    };
+    return { cls: map[normalized] || 'employe', label: this.getRoleLabel(normalized) };
+  }
+
   getDeptStyle(dept: string): { bg: string; color: string } {
     const map: { [k: string]: { bg: string; color: string } } = {
       'Ingénierie': { bg: 'rgba(20,184,166,0.12)', color: 'var(--teal)' },
@@ -515,6 +588,7 @@ export class EspaceRhComponent implements OnInit {
       formations: 'Formations & Compétences',
       offres: 'Offres & Recrutement IA',
       analytics: 'Analytique IA',
+      'mon-espace': 'Mes Demandes & Mobilité',
     };
     this.pageTitle = titles[pageId] || pageId;
     if (pageId === 'offres') {
@@ -522,6 +596,7 @@ export class EspaceRhComponent implements OnInit {
       this.loadOffres();
     }
     if (pageId === 'conges') this.loadLeaveRequests();
+    if (pageId === 'mon-espace') this.loadPersonalData();
   }
 
   logoutRh(): void {
@@ -531,8 +606,9 @@ export class EspaceRhComponent implements OnInit {
 
   // ───────────────────────── TOAST ─────────────────────────
 
-  showToast(msg: string): void {
+  showToast(msg: string, type: 'success' | 'error' | 'info' = 'success'): void {
     this.toastMessage = msg;
+    this.toastType = type;
     this.toastVisible = true;
     if (this.toastTimer) clearTimeout(this.toastTimer);
     this.toastTimer = setTimeout(() => this.toastVisible = false, 3000);
@@ -552,6 +628,409 @@ export class EspaceRhComponent implements OnInit {
     reader.readAsDataURL(file);
   }
 
+  // ───────────────────────── MON ESPACE RH ─────────────────────────
+
+  openCongeForm(): void {
+    this.showCongeForm = true;
+    this.editingConge = null;
+    this.congeForm = { dateDebut: '', dateFin: '', type: 'PAYE' };
+  }
+
+  closeCongeForm(): void {
+    this.showCongeForm = false;
+    this.editingConge = null;
+    this.congeForm = { dateDebut: '', dateFin: '', type: 'PAYE' };
+  }
+
+  submitConge(): void {
+    if (!this.currentUserId) {
+      this.showToast('Profil RH introuvable');
+      return;
+    }
+    if (!this.congeForm.dateDebut || !this.congeForm.dateFin) {
+      this.showToast('Veuillez renseigner les dates');
+      return;
+    }
+
+    this.submittingConge = true;
+    const requestPayload: CreateDemandeConge = {
+      dateDebut: this.congeForm.dateDebut,
+      dateFin: this.congeForm.dateFin,
+      type: this.congeForm.type
+    };
+
+    const isEdit = !!this.editingConge?.id;
+    const handlers = {
+      next: () => {
+        this.submittingConge = false;
+        this.closeCongeForm();
+        this.loadPersonalData();
+        this.cdr.detectChanges();
+        this.openFeedbackModal(
+          isEdit ? 'Demande de congé mise à jour' : 'Demande de congé soumise',
+          'success'
+        );
+      },
+      error: () => {
+        this.submittingConge = false;
+        this.openFeedbackModal('Impossible d\'enregistrer la demande de congé', 'error');
+        this.cdr.detectChanges();
+      }
+    };
+
+    if (this.editingConge?.id) {
+      this.demandeCongeService.updateDemande(this.editingConge.id, {
+        ...this.editingConge,
+        debut: this.congeForm.dateDebut,
+        fin: this.congeForm.dateFin,
+        typeConge: this.congeForm.type,
+        statutDemande: this.editingConge.statutDemande,
+        matriculeEmploye: this.editingConge.matriculeEmploye,
+        nomEmploye: this.editingConge.nomEmploye,
+        prenomEmploye: this.editingConge.prenomEmploye
+      }).subscribe(handlers);
+    } else {
+      this.demandeCongeService.createDemande(this.currentUserId, requestPayload).subscribe(handlers);
+    }
+  }
+
+  editCongeRequest(conge: DemandeConge): void {
+    if (conge.statutDemande !== 'EN_ATTENTE') {
+      this.showToast('Seules les demandes en attente peuvent être modifiées');
+      return;
+    }
+    this.editingConge = conge;
+    this.congeForm = { dateDebut: this.toDateInputValue(conge.debut), dateFin: this.toDateInputValue(conge.fin), type: conge.typeConge };
+    this.showCongeForm = true;
+  }
+
+  cancelCongeRequest(conge: DemandeConge): void {
+    if (!conge.id) return;
+    this.demandeCongeService.deleteDemande(conge.id).subscribe({
+      next: () => {
+        this.loadPersonalData();
+        this.openFeedbackModal('Demande de congé annulée', 'success');
+        this.cdr.detectChanges();
+      },
+      error: () => this.openFeedbackModal('Erreur lors de l\'annulation', 'error')
+    });
+  }
+
+  openFeedbackModal(message: string, type: 'success' | 'error' = 'success'): void {
+    this.feedbackModalMessage = message;
+    this.feedbackModalType = type;
+    this.showFeedbackModal = true;
+    if (this.feedbackModalTimer) clearTimeout(this.feedbackModalTimer);
+    this.feedbackModalTimer = setTimeout(() => this.closeFeedbackModal(), 3600);
+  }
+
+  closeFeedbackModal(): void {
+    this.showFeedbackModal = false;
+    this.feedbackModalMessage = '';
+    if (this.feedbackModalTimer) clearTimeout(this.feedbackModalTimer);
+  }
+
+  openFormationRequest(formation: Formation): void {
+    if (formation.status === 'pending' || formation.status === 'enrolled') {
+      this.showToast('Une demande existe déjà pour cette formation');
+      return;
+    }
+    this.selectedFormationForRequest = formation;
+    this.demandeFormationForm = { justification: '' };
+    this.formationRequestError = '';
+    this.formationRequestSuccess = '';
+  }
+
+  submitFormationRequest(): void {
+    if (!this.currentUserId || !this.selectedFormationForRequest?.id) {
+      this.showToast('Profil utilisateur ou formation introuvable');
+      return;
+    }
+    const justification = this.demandeFormationForm.justification.trim();
+    if (!justification) {
+      this.formationRequestError = 'Veuillez saisir une justification';
+      return;
+    }
+    this.submittingFormationRequest = true;
+    this.formationService.getFormationById(Number(this.selectedFormationForRequest.id)).subscribe({
+      next: () => {
+        this.demandeFormationService.createDemande(this.currentUserId!, Number(this.selectedFormationForRequest?.id), { justification }).subscribe({
+          next: () => {
+            this.submittingFormationRequest = false;
+            this.formationRequestSuccess = 'Demande envoyée';
+            this.loadPersonalData();
+            this.selectedFormationForRequest = null;
+            this.cdr.detectChanges();
+          },
+          error: () => {
+            this.submittingFormationRequest = false;
+            this.formationRequestError = 'Impossible d\'envoyer la demande';
+            this.cdr.detectChanges();
+          }
+        });
+      },
+      error: () => {
+        this.submittingFormationRequest = false;
+        this.formationRequestError = 'Formation introuvable';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  editFormationRequest(formation: Formation): void {
+    if (formation.status !== 'pending' || !formation.demandeId) {
+      this.showToast('Seules les demandes en attente peuvent être modifiées');
+      return;
+    }
+    this.selectedFormationRequest = formation;
+    this.editDemandeFormationForm = { justification: formation.justification || '' };
+  }
+
+  updateFormationRequest(): void {
+    if (!this.selectedFormationRequest?.demandeId) {
+      this.formationRequestError = 'Demande introuvable';
+      return;
+    }
+    const justification = this.editDemandeFormationForm.justification.trim();
+    if (!justification) {
+      this.formationRequestError = 'Veuillez saisir une justification';
+      return;
+    }
+    this.updatingFormationRequest = true;
+    this.demandeFormationService.updateDemande(this.selectedFormationRequest.demandeId, { justification, statutDemande: 'EN_ATTENTE' }).subscribe({
+      next: () => {
+        this.updatingFormationRequest = false;
+        this.selectedFormationRequest = null;
+        this.loadPersonalData();
+        this.showToast('Demande de formation mise à jour');
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.updatingFormationRequest = false;
+        this.formationRequestError = 'Impossible de modifier la demande';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  cancelFormationRequest(formation: Formation): void {
+    if (!formation.demandeId) return;
+    this.cancellingFormationRequest = true;
+    this.demandeFormationService.cancelDemande(formation.demandeId).subscribe({
+      next: () => {
+        this.cancellingFormationRequest = false;
+        this.loadPersonalData();
+        this.showToast('Demande de formation annulée');
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.cancellingFormationRequest = false;
+        this.showToast('Erreur lors de l\'annulation');
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  applyToOffre(offre: JobOffer): void {
+    if (!this.currentUserId) {
+      this.showToast('Profil utilisateur introuvable');
+      return;
+    }
+    if (offre.postule) {
+      this.showToast('Vous avez déjà postulé à cette offre');
+      return;
+    }
+    this.postingOffreCandidatureId = offre.id;
+    const payload: BackendCandidature = {
+      nomCandidat: this.userDisplayName,
+      email: this.authService.getUser()?.email || '',
+      employeId: this.currentUserId,
+      matriculeEmploye: '',
+      telephone: '',
+      poste: 'Responsable RH',
+      departement: 'RH',
+      offreId: offre.id,
+      titreOffre: offre.title
+    };
+    this.candidatureService.postuler(offre.id, payload).subscribe({
+      next: () => {
+        this.postingOffreCandidatureId = null;
+        this.loadPersonalData();
+        this.showToast('Votre candidature a bien été envoyée');
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.postingOffreCandidatureId = null;
+        this.showToast('Impossible d\'envoyer la candidature');
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  private loadCurrentRhProfile(): void {
+    const user = this.authService.getUser();
+    this.currentUserId = user?.id ?? null;
+    this.userDisplayName = `${user?.prenom || ''} ${user?.nom || ''}`.trim() || 'Responsable RH';
+  }
+
+  private loadPersonalData(): void {
+    if (!this.currentUserId) return;
+    this.loadPersonalConges();
+    this.loadPersonalFormations();
+    this.loadPersonalOffres();
+  }
+
+  private loadPersonalConges(): void {
+    if (!this.currentUserId) return;
+    this.loadingDemandesConge = true;
+    this.demandeCongeService.getDemandesByEmployeeId(this.currentUserId).subscribe({
+      next: (demandes) => {
+        this.demandesConge = demandes.sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
+        this.loadingDemandesConge = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.loadingDemandesConge = false;
+        this.showToast('Impossible de charger vos congés');
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  private loadPersonalFormations(): void {
+    if (!this.currentUserId) return;
+    this.loadingMesFormations = true;
+    forkJoin({
+      formations: this.formationService.getAllFormations(),
+      demandes: this.demandeFormationService.getByEmploye(this.currentUserId)
+    }).subscribe({
+      next: ({ formations, demandes }) => {
+        this.mesFormations = formations.map((formation) => this.mapFormationFromApi(formation));
+        this.applyDemandesFormation(this.mesFormations, demandes);
+        this.loadingMesFormations = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.loadingMesFormations = false;
+        this.showToast('Impossible de charger vos formations');
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  private loadPersonalOffres(): void {
+    if (!this.currentUserId) return;
+    this.loadingMesOffres = true;
+    forkJoin({
+      offres: this.offreEmploiService.getAllOffres(),
+      candidatures: this.candidatureService.getAll()
+    }).subscribe({
+      next: ({ offres, candidatures }) => {
+        const userCandidatures = new Set(
+          candidatures
+            .filter((candidature) => candidature.employeId === this.currentUserId)
+            .map((candidature) => candidature.offreId)
+            .filter((offreId): offreId is number => offreId != null)
+        );
+        this.mesOffresInternes = offres
+          .filter((offre) => offre.type === 'INTERNE')
+          .map((offre) => this.mapOffreInterneFromApi(offre, userCandidatures.has(offre.id ?? -1)));
+        this.loadingMesOffres = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.loadingMesOffres = false;
+        this.showToast('Impossible de charger les offres internes');
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  private applyDemandesFormation(formations: Formation[], demandes: any[]): void {
+    demandes.forEach((demande) => {
+      const formation = formations.find((item) => Number(item.id) === demande.formationId);
+      if (!formation) return;
+      formation.demandeId = demande.id;
+      formation.justification = demande.justification;
+      formation.dateInscription = new Date().toISOString().slice(0, 10);
+      formation.status = this.mapDemandeFormationStatus(demande.statutDemande);
+    });
+  }
+
+  private mapDemandeFormationStatus(statut: string): Formation['status'] {
+    if (statut === 'APPROUVEE') return 'enrolled';
+    if (statut === 'REFUSEE' || statut === 'ANNULEE') return 'available';
+    return 'pending';
+  }
+
+  private mapFormationFromApi(f: FormationApi): Formation {
+    const type = f.typeFormation || 'EN_LIGNE';
+    const tag = this.formationTag(type);
+    return {
+      id: f.id ?? '',
+      title: f.titre,
+      tag,
+      tagLabel: this.formationTagLabel(tag),
+      desc: f.description,
+      duration: this.formationDuration(f.dateDebut, f.dateFin),
+      rating: '4.7',
+      enrolled: Math.max(0, f.capacite),
+      status: 'available',
+      progress: 0
+    };
+  }
+
+  private mapOffreInterneFromApi(offre: OffreEmploi, postule: boolean): JobOffer {
+    return {
+      id: offre.id ?? 0,
+      title: offre.titre,
+      dept: offre.departement || 'General',
+      type: this.offreInterneType(offre.departement),
+      niveau: this.offreInterneNiveau(offre.niveau),
+      niveauLabel: offre.niveau || 'Non precise',
+      tags: offre.skills || [],
+      date: this.formatRelativeDate(offre.datePublication),
+      description: offre.description || 'Aucune description disponible.',
+      contrat: offre.contrat || 'CDI',
+      offreType: offre.type || 'INTERNE',
+      statut: offre.statut || 'OUVERTE',
+      candidatures: offre.candidatures ?? 0,
+      postule
+    };
+  }
+
+  private offreInterneType(departement?: string): 'tech' | 'design' | 'data' {
+    const normalized = (departement || '').toLowerCase();
+    if (normalized.includes('design')) return 'design';
+    if (normalized.includes('data') || normalized.includes('ia')) return 'data';
+    return 'tech';
+  }
+
+  private offreInterneNiveau(niveau?: string): 'junior' | 'mid' | 'senior' {
+    const normalized = (niveau || '').toLowerCase();
+    if (normalized.includes('junior')) return 'junior';
+    if (normalized.includes('mid')) return 'mid';
+    return 'senior';
+  }
+
+  private formationTag(typeFormation: string): 'tech' | 'soft' | 'lead' {
+    if (typeFormation === 'PRESENTIEL') return 'lead';
+    if (typeFormation === 'HYBRIDE') return 'soft';
+    return 'tech';
+  }
+
+  private formationTagLabel(tag: 'tech' | 'soft' | 'lead'): string {
+    return { tech: 'Tech', soft: 'Soft Skills', lead: 'Leadership' }[tag];
+  }
+
+  private formationDuration(dateDebut: string, dateFin: string): string {
+    if (!dateDebut || !dateFin) return 'A definir';
+    const start = new Date(dateDebut);
+    const end = new Date(dateFin);
+    const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
+    return `${days}j`;
+  }
+
   // ───────────────────────── OFFRES ─────────────────────────
 
   showKanban(offre: JobOffer): void {
@@ -562,10 +1041,12 @@ export class EspaceRhComponent implements OnInit {
       next: (candidatures) => {
         this.kanbanData = this.buildKanbanData(offre, candidatures);
         this.loadingKanban = false;
+        this.cdr.detectChanges();
       },
       error: () => {
         this.loadingKanban = false;
         this.showToast('Erreur lors du chargement des candidatures');
+        this.cdr.detectChanges();
       }
     });
   }
@@ -622,10 +1103,12 @@ export class EspaceRhComponent implements OnInit {
         this.closeModalOffre();
         this.loadOffres();
         this.showToast(`Offre "${created.titre}" publiee avec succes`);
+        this.cdr.detectChanges();
       },
       error: () => {
         this.savingOffre = false;
         this.showToast("Erreur lors de l'ajout de l'offre");
+        this.cdr.detectChanges();
       }
     });
   }
@@ -661,10 +1144,12 @@ export class EspaceRhComponent implements OnInit {
         this.closeModalOffre();
         this.loadOffres();
         this.showToast('Offre mise a jour');
+        this.cdr.detectChanges();
       },
       error: () => {
         this.savingOffre = false;
         this.showToast("Erreur lors de la mise a jour de l'offre");
+        this.cdr.detectChanges();
       }
     });
   }
@@ -677,9 +1162,11 @@ export class EspaceRhComponent implements OnInit {
           this.backToOffres();
         }
         this.showToast('Offre cloturee avec succes');
+        this.cdr.detectChanges();
       },
       error: () => {
         this.showToast("Erreur lors de la cloture de l'offre");
+        this.cdr.detectChanges();
       }
     });
   }
@@ -712,10 +1199,12 @@ export class EspaceRhComponent implements OnInit {
         }
         this.draggedCandidature = null;
         this.showToast('Statut candidature mis a jour');
+        this.cdr.detectChanges();
       },
       error: () => {
         this.draggedCandidature = null;
         this.showToast('Erreur lors de la mise a jour du statut');
+        this.cdr.detectChanges();
       }
     });
   }
@@ -732,12 +1221,13 @@ export class EspaceRhComponent implements OnInit {
     this.editingEmployee = employee;
     this.employeeForm = {
       id: employee.id,
+      role: this.normalizeEmployeeRole(employee.role),
       nom: this.extractNom(employee.name),
       prenom: this.extractPrenom(employee.name),
       email: employee.email,
       telephone: employee.phone,
       matricule: employee.matricule,
-      poste: employee.role,
+      poste: employee.poste,
       departement: employee.dept,
       dateEmbauche: employee.joinDate,
       typeContrat: employee.contractType || 'CDI',
@@ -783,6 +1273,7 @@ export class EspaceRhComponent implements OnInit {
 
     this.savingEmployee = true;
     const payload: CreateEmploye = {
+      role: this.employeeForm.role,
       nom: this.employeeForm.nom.trim(),
       prenom: this.employeeForm.prenom.trim(),
       email: this.employeeForm.email.trim(),
@@ -802,10 +1293,12 @@ export class EspaceRhComponent implements OnInit {
         this.closeModalEmp();
         this.loadEmployees();
         this.showToast(`Employe ${payload.prenom} ${payload.nom} ajoute avec succes`);
+        this.cdr.detectChanges();
       },
       error: (error: HttpErrorResponse) => {
         this.savingEmployee = false;
         this.showToast(this.getEmployeeErrorMessage(error, 'Erreur lors de la creation de l employe'));
+        this.cdr.detectChanges();
       }
     });
   }
@@ -841,10 +1334,12 @@ export class EspaceRhComponent implements OnInit {
         this.deletingEmployeeId = null;
         this.loadEmployees();
         this.showToast(`Employe ${employee.name} supprime avec succes`);
+        this.cdr.detectChanges();
       },
       error: (error: HttpErrorResponse) => {
         this.deletingEmployeeId = null;
         this.showToast(this.getEmployeeErrorMessage(error, 'Erreur lors de la suppression de l employe'));
+        this.cdr.detectChanges();
       }
     });
   }
@@ -852,7 +1347,7 @@ export class EspaceRhComponent implements OnInit {
   // ───────────────────────── CONGÉS ─────────────────────────
 
   approveLeave(req: DemandeConge): void {
-    this.updateLeaveStatus(req, 'APPROUVE', `Demande de ${this.leaveEmployeeName(req)} approuvee`);
+    this.updateLeaveStatus(req, 'APPROUVEE', `Demande de ${this.leaveEmployeeName(req)} approuvee`);
   }
 
   rejectLeave(req: DemandeConge): void {
@@ -860,16 +1355,18 @@ export class EspaceRhComponent implements OnInit {
   }
 
   cancelLeave(req: DemandeConge): void {
-    this.updateLeaveStatus(req, 'ANNULE', `Demande de ${this.leaveEmployeeName(req)} annulee`);
+    this.updateLeaveStatus(req, 'ANNULEE', `Demande de ${this.leaveEmployeeName(req)} annulee`);
   }
 
   // ───────────────────────── LIFECYCLE ─────────────────────────
 
   ngOnInit(): void {
+    this.loadCurrentRhProfile();
     this.loadEmployees();
     this.loadLeaveRequests();
     this.loadFormations();
     this.loadOffres();
+    this.loadPersonalData();
   }
 
   // Calendar navigation
@@ -940,10 +1437,12 @@ export class EspaceRhComponent implements OnInit {
         this.showToast('Demande de congé créée');
         this.closeCalendarDayModal();
         this.loadLeaveRequests();
+        this.cdr.detectChanges();
       },
       error: () => {
         this.creatingDayRequest = false;
         this.showToast('Erreur lors de la création');
+        this.cdr.detectChanges();
       }
     });
   }
@@ -959,6 +1458,7 @@ export class EspaceRhComponent implements OnInit {
     this.savingEmployee = true;
     const payload: Employe = {
       id: this.editingEmployee.id,
+      role: this.employeeForm.role,
       nom: this.employeeForm.nom.trim(),
       prenom: this.employeeForm.prenom.trim(),
       email: this.employeeForm.email.trim(),
@@ -977,10 +1477,12 @@ export class EspaceRhComponent implements OnInit {
         this.closeModalEmp();
         this.loadEmployees();
         this.showToast(`Employe ${payload.prenom} ${payload.nom} mis a jour`);
+        this.cdr.detectChanges();
       },
       error: (error: HttpErrorResponse) => {
         this.savingEmployee = false;
         this.showToast(this.getEmployeeErrorMessage(error, 'Erreur lors de la mise a jour de l employe'));
+        this.cdr.detectChanges();
       }
     });
   }
@@ -991,10 +1493,12 @@ export class EspaceRhComponent implements OnInit {
       next: (employees) => {
         this.employees = employees.map((employee) => this.mapEmployeToUi(employee));
         this.loadingEmployees = false;
+        this.cdr.detectChanges();
       },
       error: () => {
         this.loadingEmployees = false;
         this.showToast('Impossible de charger les employes');
+        this.cdr.detectChanges();
       }
     });
   }
@@ -1005,10 +1509,12 @@ export class EspaceRhComponent implements OnInit {
       next: (requests) => {
         this.leaveRequests = requests.sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
         this.loadingLeaveRequests = false;
+        this.cdr.detectChanges();
       },
       error: () => {
         this.loadingLeaveRequests = false;
         this.showToast('Impossible de charger les demandes de conge');
+        this.cdr.detectChanges();
       }
     });
   }
@@ -1064,10 +1570,12 @@ export class EspaceRhComponent implements OnInit {
       next: (formations) => {
         this.formations = formations.map((formation) => this.mapFormationToUi(formation));
         this.loadingFormations = false;
+        this.cdr.detectChanges();
       },
       error: () => {
         this.loadingFormations = false;
         this.showToast('Impossible de charger les formations');
+        this.cdr.detectChanges();
       }
     });
   }
@@ -1107,10 +1615,12 @@ export class EspaceRhComponent implements OnInit {
         this.updatingLeaveRequestId = null;
         this.loadLeaveRequests();
         this.showToast(successMessage);
+        this.cdr.detectChanges();
       },
       error: (error: HttpErrorResponse) => {
         this.updatingLeaveRequestId = null;
         this.showToast(this.getEmployeeErrorMessage(error, 'Erreur lors de la mise a jour de la demande'));
+        this.cdr.detectChanges();
       }
     });
   }
@@ -1124,8 +1634,9 @@ export class EspaceRhComponent implements OnInit {
       matricule: employee.matricule || '-',
       name: fullName || employee.email,
       initials: this.getInitials(employee.prenom, employee.nom),
-      role: employee.poste || 'Poste non renseigne',
-      dept: employee.departement || 'Non renseigne',
+      poste: employee.poste || 'Poste non renseigné',
+      role: this.normalizeEmployeeRole(employee.role),
+      dept: employee.departement || 'Non renseigné',
       status: 'active',
       color: deptStyle.bg,
       textColor: deptStyle.color,
@@ -1325,9 +1836,9 @@ export class EspaceRhComponent implements OnInit {
   leaveStatusClass(status: StatutDemande): string {
     const classes: Record<StatutDemande, string> = {
       EN_ATTENTE: 'pending',
-      APPROUVE: 'active',
+      APPROUVEE: 'active',
       REFUSEE: 'absent',
-      ANNULE: 'leave'
+      ANNULEE: 'leave'
     };
     return classes[status] || 'pending';
   }
@@ -1335,15 +1846,16 @@ export class EspaceRhComponent implements OnInit {
   leaveStatusLabel(status: StatutDemande): string {
     const labels: Record<StatutDemande, string> = {
       EN_ATTENTE: 'En attente',
-      APPROUVE: 'Approuve',
+      APPROUVEE: 'Approuve',
       REFUSEE: 'Refuse',
-      ANNULE: 'Annule'
+      ANNULEE: 'Annule'
     };
     return labels[status] || status;
   }
 
   private getEmptyEmployeeForm(): EmployeeForm {
     return {
+      role: 'EMPLOYE',
       nom: '',
       prenom: '',
       email: '',
@@ -1356,6 +1868,14 @@ export class EspaceRhComponent implements OnInit {
       soldeConge: 0,
       motdepasse: ''
     };
+  }
+
+  private normalizeEmployeeRole(role?: string): string {
+    const normalized = (role || 'EMPLOYE').toUpperCase();
+    if (normalized === 'ADMIN' || normalized === 'MANAGER' || normalized === 'RH' || normalized === 'EMPLOYE') {
+      return normalized;
+    }
+    return 'EMPLOYE';
   }
 
   private getEmployeeErrorMessage(error: HttpErrorResponse, fallback: string): string {

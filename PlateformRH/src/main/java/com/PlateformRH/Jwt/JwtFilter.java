@@ -1,6 +1,6 @@
 package com.PlateformRH.Jwt;
 
-import com.PlateformRH.Employe.UtilisateurServiceImpl;
+import com.PlateformRH.Employe.EmployeServiceImpl;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,7 +24,7 @@ import java.util.Objects;
 @Service
 public class JwtFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
-    private  final UtilisateurServiceImpl userService;
+    private  final EmployeServiceImpl employeService;
 
 
     @Override
@@ -59,7 +59,7 @@ public class JwtFilter extends OncePerRequestFilter {
                 && Objects.equals(tokenDansLaBase.getUser().getEmail(), username)
                 && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-            UserDetails userDetails = userService.loadUserByUsername(username);
+            UserDetails userDetails = employeService.loadUserByUsername(username);
             UsernamePasswordAuthenticationToken authenticationToken =
                     new UsernamePasswordAuthenticationToken(
                             userDetails, null, userDetails.getAuthorities());

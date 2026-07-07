@@ -2,7 +2,7 @@ package com.PlateformRH.Admin;
 
 import com.PlateformRH.Employe.TypeContrat;
 import com.PlateformRH.Employe.Role;
-import com.PlateformRH.Employe.UtilisateurService;
+import com.PlateformRH.Employe.EmployeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -13,13 +13,13 @@ import java.util.List;
 public class ManagerServiceImpl {
 
     private final ManagerRepository managerRepository;
-    private final UtilisateurService utilisateurService;
+    private final EmployeService employeService;
 
     public void createManager(Manager manager) {
         if (manager.getRole() == null) {
             manager.setRole(Role.ADMIN);
         }
-        utilisateurService.prepareUtilisateur(manager);
+        employeService.prepareEmploye(manager);
         managerRepository.save(manager);
     }
 

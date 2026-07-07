@@ -19,14 +19,14 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class UtilisateurController {
 
-    private final UtilisateurServiceImpl utilisateurService;
+    private final EmployeServiceImpl employeService;
     private  final CodeServiceImpl codeService;
     private final JwtService jwtService;
 
     // ✅ CREATE (inscription / ajout employé)
    @PostMapping
     public void create(@RequestBody employe utilisateur) {
-         utilisateurService.create(utilisateur);
+         employeService.createEmploye(utilisateur);
     }
 
     // ✅ GET BY ID
@@ -35,20 +35,20 @@ public class UtilisateurController {
     // ✅ GET ALL (liste employés)
     @GetMapping
     public List<UtilisateurDTO> getAll() {
-        return utilisateurService.getAll();
+        return employeService.getAll();
     }
 
     // ✅ DELETE
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Long id) {
-        utilisateurService.delete(id);
+        employeService.delete(id);
     }
 
     // ✅ UPDATE
    @PutMapping("/{id}")
     public UtilisateurDTO update(@PathVariable Long id,
                                  @RequestBody UtilisateurDTO utilisateur) {
-        return utilisateurService.update(id, utilisateur);
+        return employeService.update(id, utilisateur);
     }
     @PostMapping(path="/demande-mot-de-passe")
     public ResponseEntity<Map<String, String>> requestNewPassword(
@@ -94,8 +94,8 @@ public class UtilisateurController {
 
 
        
-        employe utilisateur = utilisateurService.loadUserByUsername(authentification.username());
-        UtilisateurDTO utilisateurDTO= utilisateurService.UserToDto(utilisateur);
+        employe utilisateur = employeService.loadUserByUsername(authentification.username());
+        UtilisateurDTO utilisateurDTO= employeService.mapToUtilisateurDto(utilisateur);
         Map<String, String> tokens = jwtService.generate(utilisateur.getUsername());
 
         Map<String, Object> response = new HashMap<>();
@@ -110,7 +110,7 @@ public class UtilisateurController {
     @GetMapping("/role/{role}")
     public  List<UtilisateurDTO> getUsersByRole(@PathVariable String role) {
 
-      return utilisateurService.getUsersByRole(role);
+      return employeService.getUsersByRole(role);
     }
     @PostMapping("/logout")
     public void logout(){
@@ -123,7 +123,7 @@ public class UtilisateurController {
             @RequestBody Map<String, String> body
     ) {
 
-        utilisateurService.changerMotDePasse(id, body);
+        employeService.changerMotDePasse(id, body);
 
         return ResponseEntity.ok(
                 "Mot de passe modifié avec succès"
@@ -131,7 +131,7 @@ public class UtilisateurController {
     }
     @PutMapping("/{id}/toggle-statut")
     public ResponseEntity<Void> changerStatut(@PathVariable Long id) {
-        utilisateurService.changerStatut(id);
+        employeService.changerStatut(id);
         return ResponseEntity.ok().build();
     }
 

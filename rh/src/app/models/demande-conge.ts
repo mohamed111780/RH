@@ -26,7 +26,7 @@ export interface CreateDemandeConge {
   type: TypeConge;
 
 }
-export type StatutDemande = 'EN_ATTENTE' | 'APPROUVE' | 'REFUSEE' | 'ANNULE';
+export type StatutDemande = 'EN_ATTENTE' | 'APPROUVEE' | 'REFUSEE' | 'ANNULEE';
 export type TypeConge     = 'PAYE' | 'MALADIE' | 'SANS_SOLDE' | 'EXCEPTIONNEL' | 'MATERNITE';
 
 
