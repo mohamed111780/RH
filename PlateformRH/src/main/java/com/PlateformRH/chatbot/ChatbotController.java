@@ -1,7 +1,6 @@
 package com.PlateformRH.chatbot;
 
 import com.PlateformRH.Employe.employe;
-import com.PlateformRH.Employe.Role;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -22,41 +21,18 @@ public class ChatbotController {
     @PostMapping("/ask")
     public ResponseEntity<ChatbotResponse> ask(@RequestBody ChatbotRequest request, Authentication authentication) {
         return ResponseEntity.ok(new ChatbotResponse(
-                chatbotService.ask(request.question(), resolveAccessLevel(authentication, request.scope()))
+                chatbotService.ask(request.question(), resolveAccessLevel(authentication))
         ));
     }
 
-    private ChatbotAccessLevel resolveAccessLevel(Authentication authentication, String requestedScope) {
-        ChatbotAccessLevel requestedAccessLevel = parseRequestedScope(requestedScope);
-
-        if (authentication == null || !(authentication.getPrincipal() instanceof employe user)) {
-            return ChatbotAccessLevel.VISITEUR;
-        }
-
-        if (requestedAccessLevel == ChatbotAccessLevel.VISITEUR) {
-            return ChatbotAccessLevel.VISITEUR;
-        }
-
-        if (user.getRole() == Role.ADMIN || user.getRole() == Role.RH) {
-            return ChatbotAccessLevel.FULL;
-        }
-
-        if (user.getRole() == Role.EMPLOYE) {
-            return ChatbotAccessLevel.EMPLOYE;
+    private ChatbotAccessLevel resolveAccessLevel(Authentication authentication) {
+        if (authentication != null && authentication.getPrincipal() instanceof employe user && user.getRole() != null) {
+            return switch (user.getRole()) {
+                case ADMIN, MANAGER, RH -> ChatbotAccessLevel.FULL;
+                case EMPLOYE -> ChatbotAccessLevel.EMPLOYE;
+            };
         }
 
         return ChatbotAccessLevel.VISITEUR;
-    }
-
-    private ChatbotAccessLevel parseRequestedScope(String requestedScope) {
-        if (requestedScope == null) {
-            return ChatbotAccessLevel.VISITEUR;
-        }
-
-        return switch (requestedScope.trim().toUpperCase()) {
-            case "ADMIN", "RH" -> ChatbotAccessLevel.FULL;
-            case "EMPLOYE" -> ChatbotAccessLevel.EMPLOYE;
-            default -> ChatbotAccessLevel.VISITEUR;
-        };
     }
 }

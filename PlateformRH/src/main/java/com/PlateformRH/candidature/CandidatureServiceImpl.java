@@ -34,8 +34,12 @@ public class CandidatureServiceImpl implements CandidatureService {
         }
 
         List<String> candidateTags = normalizeTags(c.getCompetenceTags());
+        List<String> offerTags = splitSkills(offre.getCompetences());
+        if (candidateTags.isEmpty()) {
+            candidateTags = inferTagsFromProfile(c.getPoste(), c.getDepartement(), offerTags);
+        }
         c.setCompetenceTags(candidateTags);
-        c.setScoreMatching(computeScore(candidateTags, splitSkills(offre.getCompetences())));
+        c.setScoreMatching(computeScore(candidateTags, offerTags));
 
         c.setOffre(offre);
         c.setStatut(StatutCandidature.EN_ATTENTE);
@@ -85,6 +89,16 @@ public class CandidatureServiceImpl implements CandidatureService {
         dto.setLettreMotivation(c.getLettreMotivation());
         dto.setCompetenceTags(normalizeTags(c.getCompetenceTags()));
         dto.setScoreMatching(c.getScoreMatching());
+
+        if (dto.getScoreMatching() == null && c.getOffre() != null) {
+            List<String> offerTags = splitSkills(c.getOffre().getCompetences());
+            List<String> candidateTags = dto.getCompetenceTags();
+            if (candidateTags.isEmpty()) {
+                candidateTags = inferTagsFromProfile(c.getPoste(), c.getDepartement(), offerTags);
+                dto.setCompetenceTags(candidateTags);
+            }
+            dto.setScoreMatching(computeScore(candidateTags, offerTags));
+        }
 
         if (c.getStatut() != null) {
             dto.setStatut(c.getStatut().name());
@@ -145,5 +159,39 @@ public class CandidatureServiceImpl implements CandidatureService {
 
         String normalized = Normalizer.normalize(value.trim().toLowerCase(), Normalizer.Form.NFD);
         return normalized.replaceAll("\\p{M}", "");
+    }
+
+    private List<String> inferTagsFromProfile(String poste, String departement, List<String> offerTags) {
+        if (offerTags == null || offerTags.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        String profile = ((poste == null ? "" : poste) + " " + (departement == null ? "" : departement)).trim();
+        if (profile.isBlank()) {
+            return new ArrayList<>();
+        }
+
+        String[] tokens = profile.split("[\\s,;/|+]+");
+        List<String> inferred = new ArrayList<>();
+
+        for (String offerTag : offerTags) {
+            String normalizedOfferTag = normalizeForMatching(offerTag);
+            if (normalizedOfferTag.isBlank()) {
+                continue;
+            }
+
+            for (String token : tokens) {
+                String normalizedToken = normalizeForMatching(token);
+                if (normalizedToken.isBlank()) {
+                    continue;
+                }
+                if (normalizedToken.contains(normalizedOfferTag) || normalizedOfferTag.contains(normalizedToken)) {
+                    inferred.add(offerTag);
+                    break;
+                }
+            }
+        }
+
+        return inferred.stream().distinct().collect(Collectors.toCollection(ArrayList::new));
     }
 }

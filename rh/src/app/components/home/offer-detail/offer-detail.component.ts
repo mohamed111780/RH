@@ -1,7 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
-import { CAREER_OFFERS, CareerOffer } from '../career-offers';
+import { CareerOffer } from '../career-offers';
+import { OffreEmploiService } from '../../../services/offre-emploi.service';
 
 @Component({
   selector: 'app-offer-detail',
@@ -12,14 +13,34 @@ import { CAREER_OFFERS, CareerOffer } from '../career-offers';
 })
 export class OfferDetailComponent implements OnInit {
   offer: CareerOffer | undefined;
+  loadingOffer = true;
 
-  constructor(private route: ActivatedRoute, private router: Router) {}
+  constructor(
+    private route: ActivatedRoute,
+    private router: Router,
+    private offreEmploiService: OffreEmploiService
+  ) {}
 
   ngOnInit(): void {
     const id = Number(this.route.snapshot.paramMap.get('id'));
-    this.offer = CAREER_OFFERS.find(o => o.id === id);
-    if (!this.offer) {
+    if (!id) {
       this.router.navigate(['/home']);
+      return;
     }
+
+    this.offreEmploiService.getOffreById(id).subscribe({
+      next: (offre) => {
+        this.offer = {
+          ...offre,
+          company: 'ItVision',
+          location: 'Tunis, Tunisie'
+        };
+        this.loadingOffer = false;
+      },
+      error: () => {
+        this.loadingOffer = false;
+        this.router.navigate(['/home']);
+      }
+    });
   }
 }

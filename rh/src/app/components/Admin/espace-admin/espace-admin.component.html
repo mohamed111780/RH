@@ -212,8 +212,12 @@
 
     <!-- ══════════ FORMATIONS PAGE ══════════ -->
     <div class="page" *ngIf="currentPage === 'formations'">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px;flex-wrap:wrap;">
         <div class="section-title" style="margin-bottom:0;"><i class="fas fa-graduation-cap" style="color:var(--accent3);"></i> Formations & Compétences</div>
+        <div class="topbar-search" style="max-width:420px;flex:1;min-width:240px;">
+          <i class="fas fa-search"></i>
+          <input type="text" placeholder="Rechercher formation..." [(ngModel)]="formationSearchQuery">
+        </div>
         <button class="btn-primary" (click)="openFormationModal()"><i class="fas fa-plus"></i> Créer formation</button>
       </div>
 
@@ -224,37 +228,25 @@
         <div class="stat-card cyan"><div class="stat-top"><div class="stat-icon cyan"><i class="fas fa-star"></i></div></div><div class="stat-value">{{ formationsAverageRating }}</div><div class="stat-label">Note moyenne</div></div>
       </div>
 
-      <div class="tabs">
-        <div class="tab" [class.active]="selectedFormationTab === 'all'"  (click)="selectedFormationTab = 'all'">Toutes</div>
-        <div class="tab" [class.active]="selectedFormationTab === 'tech'" (click)="selectedFormationTab = 'tech'">Tech</div>
-        <div class="tab" [class.active]="selectedFormationTab === 'soft'" (click)="selectedFormationTab = 'soft'">Soft Skills</div>
-        <div class="tab" [class.active]="selectedFormationTab === 'lead'" (click)="selectedFormationTab = 'lead'">Leadership</div>
-      </div>
-
       <div class="card" *ngIf="loadingFormations" style="padding:18px;text-align:center;color:var(--text3);margin-bottom:16px;">
         Chargement des formations...
       </div>
 
       <div class="card" *ngIf="!loadingFormations && !filteredFormations.length" style="padding:18px;text-align:center;color:var(--text3);margin-bottom:16px;">
-        Aucune formation disponible pour ce filtre.
+        Aucune formation ne correspond à votre recherche.
       </div>
 
       <div class="formations-grid" *ngIf="!loadingFormations && filteredFormations.length">
         <div class="formation-card" *ngFor="let f of filteredFormations" (click)="showToast('Formation: ' + f.title)">
-          <span class="formation-tag" [class]="f.tag">{{ f.tagLabel }}</span>
+          <div class="formation-actions" (click)="$event.stopPropagation()">
+            <button class="formation-action-btn" title="Modifier" (click)="openEditFormation(f)">
+              <i class="fas fa-pen"></i>
+            </button>
+          </div>
+          <span class="formation-tag" [class]="f.tag">{{ f.typeFormationLabel || f.tagLabel }}</span>
           <h4>{{ f.title }}</h4>
           <p>{{ f.desc }}</p>
-          <div style="margin-bottom:10px;">
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:5px;">
-              <span>Progression moyenne</span>
-              <span>{{ f.progress }}%</span>
-            </div>
-            <div class="progress-bar">
-              <div class="progress-fill" [style.width]="f.progress + '%'"
-                [style.background]="f.tag === 'tech' ? 'var(--accent)' : f.tag === 'soft' ? 'var(--accent6)' : 'var(--accent4)'">
-              </div>
-            </div>
-          </div>
+
           <div class="formation-meta">
             <span><i class="fas fa-clock"></i>{{ f.duration }}</span>
             <span><i class="fas fa-users"></i>{{ f.enrolled }} inscrits</span>
@@ -449,7 +441,7 @@
 
     <!-- ══════════ MON ESPACE COLLABORATEUR ══════════ -->
     <div class="page" *ngIf="currentPage === 'mon-espace'">
-      <app-mon-espace-collaborateur></app-mon-espace-collaborateur>
+      <app-mon-espace-collaborateur [theme]="'admin'"></app-mon-espace-collaborateur>
     </div>
 
     <!-- ══════════ ANALYTICS PAGE ══════════ -->
@@ -615,8 +607,8 @@
   <div class="modal formation-modal" (click)="$event.stopPropagation()">
     <div class="modal-head">
       <div>
-        <h2>Nouvelle formation</h2>
-        <p>Renseignez les informations principales de la formation avant sa publication.</p>
+        <h2>{{ editingFormationId ? 'Modifier la formation' : 'Nouvelle formation' }}</h2>
+        <p>{{ editingFormationId ? 'Mettez a jour les informations de la formation.' : 'Renseignez les informations principales de la formation avant sa publication.' }}</p>
       </div>
       <div class="modal-badge formation-badge">
         <i class="fas fa-graduation-cap"></i>
@@ -656,15 +648,15 @@
         </div>
         <div class="form-group">
           <label>Date fin</label>
-          <input type="date" [(ngModel)]="newFormation.dateFin">
+          <input type="date" [(ngModel)]="newFormation.dateFin" [min]="newFormation.dateDebut">
         </div>
       </div>
     </div>
 
     <div class="modal-actions">
       <button class="btn-secondary" (click)="closeFormationModal()">Annuler</button>
-      <button class="btn-primary" (click)="createFormation()" [disabled]="savingFormation">
-        <i class="fas fa-save"></i> {{ savingFormation ? 'Creation...' : 'Enregistrer' }}
+      <button class="btn-primary" (click)="saveFormation()" [disabled]="savingFormation">
+        <i class="fas fa-save"></i> {{ savingFormation ? 'Enregistrement...' : (editingFormationId ? 'Mettre a jour' : 'Enregistrer') }}
       </button>
     </div>
   </div>

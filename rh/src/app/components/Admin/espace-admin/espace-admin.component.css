@@ -1118,6 +1118,19 @@
   resize: vertical;
 }
 
+.form-group input[type="date"] {
+  min-height: 42px;
+  appearance: auto;
+  -webkit-appearance: auto;
+  color-scheme: light;
+  cursor: pointer;
+}
+
+.form-group input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.9;
+}
+
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {

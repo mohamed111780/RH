@@ -284,8 +284,31 @@
     <div class="offre-tags">
       <span class="offre-tag" *ngFor="let t of showOffreModal.tags">{{ t }}</span>
     </div>
+
+    <div class="candidature-skills-panel" *ngIf="!showOffreModal.postule">
+      <div class="candidature-skills-head">
+        <h4>Vos compétences</h4>
+        <span class="matching-score-pill">{{ estimatedMatchingScore() }}% matching</span>
+      </div>
+      <p class="candidature-skills-hint">Sélectionnez vos compétences pour le calcul du score IA.</p>
+      <div class="candidature-skill-options">
+        <button
+          type="button"
+          class="candidature-skill-btn"
+          *ngFor="let skill of showOffreModal.tags"
+          [class.selected]="selectedCandidatureSkills.includes(skill)"
+          (click)="toggleCandidatureSkill(skill)">
+          {{ skill }}
+        </button>
+      </div>
+      <div class="candidature-skill-input">
+        <input type="text" [(ngModel)]="customCandidatureSkill" placeholder="Ajouter une compétence" (keyup.enter)="addCustomCandidatureSkill()">
+        <button type="button" class="btn-ghost" (click)="addCustomCandidatureSkill()">Ajouter</button>
+      </div>
+    </div>
+
     <div class="modal-actions">
-      <button type="button" class="btn-primary" *ngIf="!showOffreModal.postule" [disabled]="postingCandidature" (click)="postuler(showOffreModal)">
+      <button type="button" class="btn-primary" *ngIf="!showOffreModal.postule" [disabled]="postingCandidature || !selectedCandidatureSkills.length" (click)="postuler(showOffreModal)">
         <i class="fas fa-paper-plane"></i> {{ postingCandidature ? 'Envoi...' : 'Postuler' }}
       </button>
       <span class="postule-badge" *ngIf="showOffreModal.postule"><i class="fas fa-check"></i> Déjà postulé</span>

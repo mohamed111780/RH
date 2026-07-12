@@ -87,10 +87,17 @@ public class DemandeCongeServiceImpl implements DemandeCongeService {
     }
     @Override
     public void deleteDemande(Long id) {
-        if (!demandeCongeRepository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Demande de conge non trouvee");
+        DemandeConge demande = demandeCongeRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Demande de conge non trouvee"));
+
+        if (demande.getStatut() == null || demande.getStatut() == StatutDemande.EN_ATTENTE) {
+            demande.setStatut(StatutDemande.ANNULEE);
+            demandeCongeRepository.save(demande);
+            return;
         }
-        demandeCongeRepository.deleteById(id);
+
+        demande.setStatut(StatutDemande.ANNULEE);
+        demandeCongeRepository.save(demande);
     }
     @Override
     public DemandeCongeDTO updateDemande(Long id, DemandeCongeDTO dto) {

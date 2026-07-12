@@ -17,6 +17,7 @@ import { DemandeFormationService } from '../../../services/demande-formation.ser
 import { OffreEmploiService } from '../../../services/offre-emploi.service';
 import { CandidatureService } from '../../../services/candidature.service';
 import { MonEspaceCollaborateurComponent } from '../../shared/mon-espace-collaborateur/mon-espace-collaborateur.component';
+import { computeMatchingScore, inferProfileSkills, normalizeSkill } from '../../../utils/matching-score.util';
 
 export interface Employee {
   id: number;
@@ -94,12 +95,16 @@ export interface Formation {
   id?: number | string;
   tag: 'tech' | 'soft' | 'lead';
   tagLabel: string;
+  typeFormation?: 'EN_LIGNE' | 'PRESENTIEL' | 'HYBRIDE';
+  typeFormationLabel?: string;
   title: string;
   desc: string;
   duration: string;
   enrolled: number;
   rating: string;
   progress: number;
+  dateDebut?: string;
+  dateFin?: string;
   status?: 'available' | 'pending' | 'enrolled' | 'completed';
   demandeId?: number;
   justification?: string;
@@ -221,8 +226,8 @@ export class EspaceRhComponent implements OnInit {
   // Filtre employés
   filterDept: string = 'Tous';
 
-  // Onglet formations
-  selectedFormationTab: 'all' | 'tech' | 'soft' | 'lead' = 'all';
+  // Recherche formations
+  formationSearchQuery: string = '';
   loadingFormations: boolean = false;
 
   // Formation modal state
@@ -321,8 +326,15 @@ export class EspaceRhComponent implements OnInit {
   }
 
   get filteredFormations(): Formation[] {
-    if (this.selectedFormationTab === 'all') return this.formations;
-    return this.formations.filter(f => f.tag === this.selectedFormationTab);
+    const query = this.formationSearchQuery.trim().toLowerCase();
+    if (!query) {
+      return this.formations;
+    }
+    return this.formations.filter(f =>
+      (f.title?.toLowerCase().includes(query) ?? false) ||
+      (f.desc?.toLowerCase().includes(query) ?? false) ||
+      (f.tagLabel?.toLowerCase().includes(query) ?? false)
+    );
   }
 
   get activeFormationsCount(): number {
@@ -347,33 +359,43 @@ export class EspaceRhComponent implements OnInit {
 
   // Formation modal actions
   openModalFormation() {
+    this.editingFormationId = null;
     this.modalFormationOpen = true;
     this.newFormation = { titre: '', description: '', dateDebut: '', dateFin: '', typeFormation: 'EN_LIGNE', capacite: 1 };
   }
 
   closeModalFormation() {
     this.modalFormationOpen = false;
+    this.editingFormationId = null;
+    this.creatingFormation = false;
   }
 
   createFormation() {
     if (this.creatingFormation) return;
-    // basic validation
-    if (!this.newFormation.titre || !this.newFormation.dateDebut) {
-      this.showToast('Veuillez renseigner au moins le titre et la date de début.');
+    if (!this.newFormation.titre.trim() || !this.newFormation.dateDebut || !this.newFormation.dateFin) {
+      this.showToast('Veuillez renseigner le titre et les dates de début et de fin.');
+      return;
+    }
+
+    if (new Date(this.newFormation.dateFin) < new Date(this.newFormation.dateDebut)) {
+      this.showToast('La date de fin doit être après la date de début.');
+      return;
+    }
+
+    if (!this.newFormation.capacite || this.newFormation.capacite < 1) {
+      this.showToast('La capacité doit être supérieure à 0.');
       return;
     }
 
     this.creatingFormation = true;
+    const payload = this.buildFormationPayload();
 
-    // If editing an existing formation, call update
     if (this.editingFormationId) {
-      this.formationService.updateFormation(this.editingFormationId, this.newFormation).subscribe({
-        next: (res) => {
+      this.formationService.updateFormation(this.editingFormationId, payload).subscribe({
+        next: () => {
           this.showToast('Formation mise à jour avec succès');
-          if (typeof (this as any).loadFormations === 'function') (this as any).loadFormations();
-          this.modalFormationOpen = false;
-          this.creatingFormation = false;
-          this.editingFormationId = null;
+          this.loadFormations();
+          this.closeModalFormation();
           this.cdr.detectChanges();
         },
         error: (err: HttpErrorResponse) => {
@@ -386,13 +408,11 @@ export class EspaceRhComponent implements OnInit {
       return;
     }
 
-    // Otherwise create new
-    this.formationService.createFormation(this.newFormation).subscribe({
-      next: (res) => {
+    this.formationService.createFormation(payload).subscribe({
+      next: () => {
         this.showToast('Formation créée avec succès');
-        if (typeof (this as any).loadFormations === 'function') (this as any).loadFormations();
-        this.modalFormationOpen = false;
-        this.creatingFormation = false;
+        this.loadFormations();
+        this.closeModalFormation();
         this.cdr.detectChanges();
       },
       error: (err: HttpErrorResponse) => {
@@ -405,14 +425,12 @@ export class EspaceRhComponent implements OnInit {
   }
 
   openEditFormation(f: any) {
-    // populate modal with selected formation values
     this.editingFormationId = (f && (f.id || f.id === 0)) ? f.id : null;
-    // map fields if coming from different shape
     this.newFormation = {
       titre: f.titre || f.title || '',
       description: f.description || f.desc || '',
-      dateDebut: f.dateDebut || f.dateDebut || f.start || '',
-      dateFin: f.dateFin || f.dateFin || f.end || '',
+      dateDebut: this.toDateInputValue(f.dateDebut || f.start),
+      dateFin: this.toDateInputValue(f.dateFin || f.end),
       typeFormation: (f.typeFormation as any) || 'EN_LIGNE',
       capacite: (f.capacite as any) || (f.enrolled as any) || 1
     };
@@ -514,14 +532,16 @@ export class EspaceRhComponent implements OnInit {
   }
 
   computeScore(candTags: string[], offreTags: string[]): number {
-    if (!offreTags?.length) return 0;
-    const matches = candTags.filter(t => offreTags.some(ot => ot.toLowerCase() === t.toLowerCase())).length;
-    return Math.round((matches / offreTags.length) * 100);
+    return computeMatchingScore(candTags, offreTags);
   }
 
   tagMatchClass(tag: string, offreTags: string[]): string {
-    const isMatch = offreTags.some(ot => ot.toLowerCase() === tag.toLowerCase());
-    const isPartial = !isMatch && offreTags.some(ot => ot.toLowerCase().includes(tag.toLowerCase()) || tag.toLowerCase().includes(ot.toLowerCase()));
+    const normalizedTag = normalizeSkill(tag);
+    const isMatch = offreTags.some((ot) => normalizeSkill(ot) === normalizedTag);
+    const isPartial = !isMatch && offreTags.some((ot) => {
+      const normalizedOfferTag = normalizeSkill(ot);
+      return normalizedOfferTag.includes(normalizedTag) || normalizedTag.includes(normalizedOfferTag);
+    });
     return isMatch ? 'match' : isPartial ? 'partial' : 'no-match';
   }
 
@@ -849,6 +869,7 @@ export class EspaceRhComponent implements OnInit {
       telephone: '',
       poste: 'Responsable RH',
       departement: 'RH',
+      competenceTags: inferProfileSkills('Responsable RH RH', offre.tags),
       offreId: offre.id,
       titreOffre: offre.title
     };
@@ -1727,16 +1748,22 @@ export class EspaceRhComponent implements OnInit {
   }
 
   private mapFormationToUi(formation: FormationApi): Formation {
-    const tag = this.mapFormationTag(formation.typeFormation);
+    const typeFormation = formation.typeFormation as 'EN_LIGNE' | 'PRESENTIEL' | 'HYBRIDE' | undefined;
+    const tag = this.mapFormationTag(typeFormation);
     return {
+      id: formation.id,
       tag,
       tagLabel: this.mapFormationTagLabel(tag),
+      typeFormation,
+      typeFormationLabel: this.mapFormationTypeLabel(typeFormation),
       title: formation.titre,
       desc: formation.description || 'Aucune description disponible.',
       duration: this.formatFormationDuration(formation.dateDebut, formation.dateFin),
       enrolled: formation.capacite ?? 0,
-      rating: this.estimateFormationRating(formation.typeFormation),
-      progress: this.computeFormationProgress(formation.dateDebut, formation.dateFin)
+      rating: this.estimateFormationRating(typeFormation),
+      progress: this.computeFormationProgress(formation.dateDebut, formation.dateFin),
+      dateDebut: this.toDateInputValue(formation.dateDebut),
+      dateFin: this.toDateInputValue(formation.dateFin)
     };
   }
 
@@ -1760,6 +1787,19 @@ export class EspaceRhComponent implements OnInit {
       lead: 'Leadership'
     };
     return labels[tag];
+  }
+
+  private mapFormationTypeLabel(typeFormation?: string): string {
+    switch ((typeFormation || '').toUpperCase()) {
+      case 'EN_LIGNE':
+        return 'En ligne';
+      case 'PRESENTIEL':
+        return 'Présentiel';
+      case 'HYBRIDE':
+        return 'Hybride';
+      default:
+        return 'Non précisé';
+    }
   }
 
   private computeFormationProgress(dateDebut?: string, dateFin?: string): number {
@@ -1924,9 +1964,37 @@ export class EspaceRhComponent implements OnInit {
     return fullName.split(' ').slice(1).join(' ') || '';
   }
 
+  private buildFormationPayload(): FormationApi {
+    return {
+      titre: this.newFormation.titre.trim(),
+      description: (this.newFormation.description || '').trim(),
+      dateDebut: this.newFormation.dateDebut,
+      dateFin: this.newFormation.dateFin,
+      typeFormation: this.newFormation.typeFormation,
+      capacite: this.newFormation.capacite
+    };
+  }
+
   private toDateInputValue(value?: string): string {
     if (!value) return '';
-    return value.includes('T') ? value.slice(0, 10) : value;
+    const normalized = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+      return normalized;
+    }
+    if (normalized.includes('T')) {
+      return normalized.slice(0, 10);
+    }
+    if (/^\d{4}-\d{2}-\d{2}/.test(normalized)) {
+      return normalized.slice(0, 10);
+    }
+    const date = new Date(normalized);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   formatDate(value?: string): string {

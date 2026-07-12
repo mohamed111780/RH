@@ -23,6 +23,7 @@ import {
   TYPE_LABELS
 } from '../../../models/demande-conge';
 import { DemandeCongeService } from '../../../services/demande-conge.service';
+import { computeMatchingScore, inferProfileSkills } from '../../../utils/matching-score.util';
 
 export type FormationStatus = 'enrolled' | 'completed' | 'pending' | 'available';
 export type CongeForm = CreateDemandeConge & { commentaire?: string };
@@ -114,6 +115,8 @@ export class EspaceEmployeComponent implements OnInit {
   private successModalTimer: any;
   showCongeModal    = false;
   showOffreModal: OffreInterne | null = null;
+  selectedCandidatureSkills: string[] = [];
+  customCandidatureSkill = '';
   showFormationModal: Formation | null = null;
   showDemandeFormationModal = false;
   showEditDemandeFormationModal = false;
@@ -325,6 +328,7 @@ export class EspaceEmployeComponent implements OnInit {
       error: (error: HttpErrorResponse) => {
         this.submittingConge = false;
         const msg = this.getCongeErrorMessage(error, 'Erreur lors de la creation de la demande de conge');
+        this.showToast(msg);
         this.openSuccessModal(msg, 'error', true);
         this.cdr.detectChanges();
       }
@@ -357,20 +361,25 @@ export class EspaceEmployeComponent implements OnInit {
       },
       error: (error: HttpErrorResponse) => {
         this.submittingConge = false;
-        this.showToast(this.getCongeErrorMessage(error, 'Erreur lors de la mise a jour de la demande'));
+        const msg = this.getCongeErrorMessage(error, 'Erreur lors de la mise a jour de la demande');
+        this.showToast(msg);
         this.cdr.detectChanges();
       }
     });
   }
 
   private getCongeErrorMessage(error: HttpErrorResponse, fallback: string): string {
-    if (typeof error.error === 'string' && error.error.trim()) {
+    const directMessage = (error as HttpErrorResponse & { error?: { message?: string } }).error?.message;
+    if (typeof directMessage === 'string' && directMessage.trim()) {
+      return directMessage;
+    }
+
+    if (typeof error?.error === 'string' && error.error.trim()) {
       return error.error;
     }
 
-    const serverMessage = error.error?.message || error.error?.error;
-    if (typeof serverMessage === 'string' && serverMessage.trim()) {
-      return serverMessage;
+    if (typeof error?.message === 'string' && error.message.trim()) {
+      return error.message;
     }
 
     return fallback;
@@ -406,6 +415,7 @@ export class EspaceEmployeComponent implements OnInit {
       error: (error: HttpErrorResponse) => {
         this.cancelingDemande = false;
         const msg = this.getCongeErrorMessage(error, 'Erreur lors de l annulation de la demande');
+        this.showToast(msg);
         this.openSuccessModal(msg, 'error', true);
         this.cdr.detectChanges();
       }
@@ -435,20 +445,49 @@ export class EspaceEmployeComponent implements OnInit {
   // ── Offres ──────────────────────────────────────────────────────────────────────────────────────────
   openOffreModal(event: MouseEvent, offre: OffreInterne): void {
     event.stopPropagation();
-    console.log('openOffreModal', offre);
     this.showOffreModal = offre;
+    this.resetCandidatureSkills(offre);
+  }
+
+  toggleCandidatureSkill(skill: string): void {
+    if (this.selectedCandidatureSkills.includes(skill)) {
+      this.selectedCandidatureSkills = this.selectedCandidatureSkills.filter((item) => item !== skill);
+      return;
+    }
+    this.selectedCandidatureSkills = [...this.selectedCandidatureSkills, skill];
+  }
+
+  addCustomCandidatureSkill(): void {
+    const skill = this.customCandidatureSkill.trim();
+    if (!skill || this.selectedCandidatureSkills.some((item) => item.toLowerCase() === skill.toLowerCase())) {
+      this.customCandidatureSkill = '';
+      return;
+    }
+    this.selectedCandidatureSkills = [...this.selectedCandidatureSkills, skill];
+    this.customCandidatureSkill = '';
+  }
+
+  estimatedMatchingScore(): number {
+    return computeMatchingScore(this.selectedCandidatureSkills, this.showOffreModal?.tags ?? []);
+  }
+
+  private resetCandidatureSkills(offre: OffreInterne): void {
+    const profileText = `${this.employe.poste} ${this.employe.dept}`;
+    this.selectedCandidatureSkills = inferProfileSkills(profileText, offre.tags);
+    this.customCandidatureSkill = '';
   }
 
   postuler(offre: OffreInterne): void {
-    console.log('postuler start', offre);
     if (!this.employe.id) {
-      console.log('postuler failed: employe introuvable');
       this.showToast('Profil employe introuvable');
       return;
     }
     if (offre.postule) {
-      console.log('postuler skipped: deja postule', offre.id);
       this.showToast('Vous avez deja postule a cette offre');
+      return;
+    }
+    if (!this.selectedCandidatureSkills.length) {
+      this.showToast('Selectionnez au moins une competence pour calculer le matching');
       return;
     }
 
@@ -460,23 +499,22 @@ export class EspaceEmployeComponent implements OnInit {
       telephone: this.employe.telephone,
       poste: this.employe.poste,
       departement: this.employe.dept,
+      competenceTags: [...this.selectedCandidatureSkills],
       offreId: offre.id,
       titreOffre: offre.title
     };
 
-    console.log('postuler payload', candidaturePayload);
     this.postingCandidature = true;
     this.candidatureService.postuler(offre.id, candidaturePayload).subscribe({
       next: () => {
-        console.log('postuler success', offre.id);
         this.postingCandidature = false;
         this.showOffreModal = null;
+        this.selectedCandidatureSkills = [];
         this.loadOffresInternes();
         this.openSuccessModal(`Votre candidature pour "${offre.title}" a bien été envoyée !`);
         this.cdr.detectChanges();
       },
       error: (err) => {
-        console.error('postuler error', err);
         this.postingCandidature = false;
         this.showToast(String(err?.error?.message || err?.error || 'Erreur lors de l\'envoi de la candidature'));
         this.cdr.detectChanges();

@@ -5,6 +5,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CAREER_OFFERS, CareerOffer } from './career-offers';
 import { LoginComponent } from '../login/login.component';
 import { ResetPasswordComponent } from '../reset-password/reset-password.component';
+import { OffreEmploiService } from '../../services/offre-emploi.service';
 
 @Component({
   selector: 'app-home',
@@ -18,7 +19,8 @@ export class HomeComponent implements OnInit {
   constructor(
     private sanitizer: DomSanitizer,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private offreEmploiService: OffreEmploiService
   ) {}
 
   scrolled = false;
@@ -147,6 +149,7 @@ export class HomeComponent implements OnInit {
   ];
 
   careerOffers: CareerOffer[] = CAREER_OFFERS;
+  loadingCareerOffers = false;
 
   plans = [
     {
@@ -194,12 +197,34 @@ export class HomeComponent implements OnInit {
   mockBars = [{ h: 40, active: false }, { h: 60, active: false }, { h: 45, active: false }, { h: 80, active: true }, { h: 55, active: false }, { h: 70, active: false }, { h: 50, active: false }];
 
   ngOnInit(): void {
+    this.loadCareerOffers();
     this.route.data.subscribe((data) => {
       const modal = data['authModal'];
       if (modal === 'login' || modal === 'reset') {
         this.authModalMode = modal;
         this.loginModalOpen = true;
         this.menuOpen = false;
+      }
+    });
+  }
+
+  private loadCareerOffers(): void {
+    this.loadingCareerOffers = true;
+    this.offreEmploiService.getOffresByType('EXTERNE').subscribe({
+      next: (offres) => {
+        const apiOffers = offres
+          .filter((offre) => offre.statut === 'OUVERTE')
+          .map((offre) => ({
+            ...offre,
+            company: 'ItVision',
+            location: 'Tunis, Tunisie'
+          }));
+        this.careerOffers = apiOffers.length ? apiOffers : CAREER_OFFERS;
+        this.loadingCareerOffers = false;
+      },
+      error: () => {
+        this.careerOffers = CAREER_OFFERS;
+        this.loadingCareerOffers = false;
       }
     });
   }

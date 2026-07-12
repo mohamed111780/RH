@@ -6,7 +6,8 @@ import { AuthGuard } from './guards/auth.guard';
 import { RoleGuard } from './guards/role.guard';
 import {EspaceAdminComponent} from "./components/Admin/espace-admin/espace-admin.component";
 import {EspaceEmployeComponent} from "./components/employe/espace-employe/espace-employe.component";
-import {EspaceRhComponent} from "./components/rh/espace-rh/espace-rh.component";import { OfferDetailComponent } from './components/home/offer-detail/offer-detail.component';
+import {EspaceRhComponent} from "./components/rh/espace-rh/espace-rh.component";
+import { OfferDetailComponent } from './components/home/offer-detail/offer-detail.component';
 import { ApplyFormComponent } from './components/home/apply-form/apply-form.component';
 
 export const routes: Routes = [

@@ -15,6 +15,7 @@ import { CandidatureService } from '../../../services/candidature.service';
 import { FormationService } from '../../../services/formation.service';
 import { EmployeService } from '../../../services/employe.service';
 import { MonEspaceCollaborateurComponent } from '../../shared/mon-espace-collaborateur/mon-espace-collaborateur.component';
+import { computeMatchingScore, normalizeSkill } from '../../../utils/matching-score.util';
 
 interface Employee {
   initials: string;
@@ -28,14 +29,19 @@ interface Employee {
 }
 
 interface Formation {
+  id?: number;
   tag: 'tech' | 'soft' | 'lead';
   tagLabel: string;
+  typeFormation?: 'EN_LIGNE' | 'PRESENTIEL' | 'HYBRIDE';
+  typeFormationLabel?: string;
   title: string;
   desc: string;
   duration: string;
   enrolled: number;
   rating: string;
   progress: number;
+  dateDebut?: string;
+  dateFin?: string;
 }
 
 interface Offre {
@@ -140,7 +146,7 @@ export class EspaceAdminComponent implements OnInit {
   private toastTimer: any;
 
   searchQuery: string = '';
-  selectedFormationTab: string = 'all';
+  formationSearchQuery: string = '';
   currentDate: Date = new Date();
 
   constructor(
@@ -173,6 +179,7 @@ export class EspaceAdminComponent implements OnInit {
   };
 
   // Edit state
+  editingFormationId: number | null = null;
   editingOffre: Offre | null = null;
   editOffreTitre: string = '';
   editOffreDesc: string = '';
@@ -414,8 +421,15 @@ export class EspaceAdminComponent implements OnInit {
   }
 
   get filteredFormations(): Formation[] {
-    if (this.selectedFormationTab === 'all') return this.formations;
-    return this.formations.filter(f => f.tag === this.selectedFormationTab);
+    const query = this.formationSearchQuery.trim().toLowerCase();
+    if (!query) {
+      return this.formations;
+    }
+    return this.formations.filter(f =>
+      (f.title?.toLowerCase().includes(query) ?? false) ||
+      (f.desc?.toLowerCase().includes(query) ?? false) ||
+      (f.tagLabel?.toLowerCase().includes(query) ?? false)
+    );
   }
 
   loadFormations(): void {
@@ -495,11 +509,7 @@ export class EspaceAdminComponent implements OnInit {
   }
 
   computeScore(candTags: string[], offreTags: string[]): number {
-    if (!offreTags.length) return 0;
-    const matches = candTags.filter(t =>
-      offreTags.some(ot => ot.toLowerCase() === t.toLowerCase())
-    ).length;
-    return Math.round((matches / offreTags.length) * 100);
+    return computeMatchingScore(candTags, offreTags);
   }
 
   scoreColor(score: number): string {
@@ -511,10 +521,12 @@ export class EspaceAdminComponent implements OnInit {
   }
 
   tagClass(tag: string, offreTags: string[]): string {
-    const isMatch   = offreTags.some(ot => ot.toLowerCase() === tag.toLowerCase());
-    const isPartial = !isMatch && offreTags.some(ot =>
-      ot.toLowerCase().includes(tag.toLowerCase()) || tag.toLowerCase().includes(ot.toLowerCase())
-    );
+    const normalizedTag = normalizeSkill(tag);
+    const isMatch = offreTags.some((ot) => normalizeSkill(ot) === normalizedTag);
+    const isPartial = !isMatch && offreTags.some((ot) => {
+      const normalizedOfferTag = normalizeSkill(ot);
+      return normalizedOfferTag.includes(normalizedTag) || normalizedTag.includes(normalizedOfferTag);
+    });
     return isMatch ? 'match' : isPartial ? 'partial' : 'no-match';
   }
 
@@ -555,16 +567,31 @@ export class EspaceAdminComponent implements OnInit {
   }
 
   openFormationModal(): void {
+    this.editingFormationId = null;
     this.resetFormationForm();
+    this.showFormationModal = true;
+  }
+
+  openEditFormation(formation: Formation): void {
+    this.editingFormationId = formation.id ?? null;
+    this.newFormation = {
+      titre: formation.title,
+      description: formation.desc,
+      dateDebut: this.toDateInputValue(formation.dateDebut),
+      dateFin: this.toDateInputValue(formation.dateFin),
+      typeFormation: formation.typeFormation || 'EN_LIGNE',
+      capacite: formation.enrolled
+    };
     this.showFormationModal = true;
   }
 
   closeFormationModal(): void {
     this.showFormationModal = false;
     this.savingFormation = false;
+    this.editingFormationId = null;
   }
 
-  createFormation(): void {
+  saveFormation(): void {
     if (!this.newFormation.titre.trim() || !this.newFormation.description.trim()) {
       this.showToast('Veuillez renseigner le titre et la description');
       return;
@@ -586,20 +613,30 @@ export class EspaceAdminComponent implements OnInit {
     }
 
     this.savingFormation = true;
-    this.formationService.createFormation({
-      ...this.newFormation,
+    const payload: FormationApi = {
       titre: this.newFormation.titre.trim(),
-      description: this.newFormation.description.trim()
-    }).subscribe({
+      description: this.newFormation.description.trim(),
+      dateDebut: this.newFormation.dateDebut,
+      dateFin: this.newFormation.dateFin,
+      typeFormation: this.newFormation.typeFormation,
+      capacite: this.newFormation.capacite
+    };
+
+    const request = this.editingFormationId
+      ? this.formationService.updateFormation(this.editingFormationId, payload)
+      : this.formationService.createFormation(payload);
+
+    request.subscribe({
       next: () => {
         this.savingFormation = false;
         this.closeFormationModal();
         this.loadFormations();
-        this.showToast('Formation creee avec succes');
+        this.showToast(this.editingFormationId ? 'Formation mise a jour avec succes' : 'Formation creee avec succes');
+        this.editingFormationId = null;
       },
       error: () => {
         this.savingFormation = false;
-        this.showToast("Erreur lors de la creation de la formation");
+        this.showToast(this.editingFormationId ? 'Erreur lors de la mise a jour de la formation' : 'Erreur lors de la creation de la formation');
       }
     });
   }
@@ -991,16 +1028,22 @@ export class EspaceAdminComponent implements OnInit {
   }
 
   private mapFormationToUi(formation: FormationApi): Formation {
-    const tag = this.mapFormationTag(formation.typeFormation);
+    const typeFormation = formation.typeFormation as 'EN_LIGNE' | 'PRESENTIEL' | 'HYBRIDE' | undefined;
+    const tag = this.mapFormationTag(typeFormation);
     return {
+      id: formation.id,
       tag,
       tagLabel: this.mapFormationTagLabel(tag),
+      typeFormation,
+      typeFormationLabel: this.mapFormationTypeLabel(typeFormation),
       title: formation.titre,
       desc: formation.description || 'Aucune description disponible.',
       duration: this.formatFormationDuration(formation.dateDebut, formation.dateFin),
       enrolled: formation.capacite ?? 0,
-      rating: this.estimateFormationRating(formation.typeFormation),
-      progress: this.computeFormationProgress(formation.dateDebut, formation.dateFin)
+      rating: this.estimateFormationRating(typeFormation),
+      progress: this.computeFormationProgress(formation.dateDebut, formation.dateFin),
+      dateDebut: this.toDateInputValue(formation.dateDebut),
+      dateFin: this.toDateInputValue(formation.dateFin)
     };
   }
 
@@ -1024,6 +1067,19 @@ export class EspaceAdminComponent implements OnInit {
       lead: 'Leadership'
     };
     return labels[tag];
+  }
+
+  private mapFormationTypeLabel(typeFormation?: string): string {
+    switch ((typeFormation || '').toUpperCase()) {
+      case 'EN_LIGNE':
+        return 'En ligne';
+      case 'PRESENTIEL':
+        return 'Présentiel';
+      case 'HYBRIDE':
+        return 'Hybride';
+      default:
+        return 'Non précisé';
+    }
   }
 
   private computeFormationProgress(dateDebut?: string, dateFin?: string): number {
@@ -1062,6 +1118,23 @@ export class EspaceAdminComponent implements OnInit {
 
   private toDateInputValue(value: string | undefined): string {
     if (!value) return '';
-    return value.includes('T') ? value.slice(0, 10) : value;
+    const normalized = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+      return normalized;
+    }
+    if (normalized.includes('T')) {
+      return normalized.slice(0, 10);
+    }
+    if (/^\d{4}-\d{2}-\d{2}/.test(normalized)) {
+      return normalized.slice(0, 10);
+    }
+    const date = new Date(normalized);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 }

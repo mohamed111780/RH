@@ -196,6 +196,9 @@
           </div>
           <div class="conge-days" [class]="congeStatusClass(c.statutDemande)">{{ congeDays(c) }}j</div>
           <span class="status-pill" [class]="congeStatusClass(c.statutDemande)">{{ statusLabel(c.statutDemande) }}</span>
+          <button class="btn-sm danger" *ngIf="c.statutDemande === 'EN_ATTENTE' && c.id" (click)="$event.stopPropagation(); openCancelDemandeModal(c.id)">
+            <i class="fas fa-times"></i> Annuler
+          </button>
         </div>
       </div>
 
@@ -639,9 +642,31 @@
 
     <div class="offre-modal-desc">{{ showOffreModal!.description }}</div>
 
+    <div class="candidature-skills-panel" *ngIf="!showOffreModal!.postule">
+      <div class="candidature-skills-head">
+        <h3>Vos compétences</h3>
+        <span class="matching-score-pill">{{ estimatedMatchingScore() }}% matching</span>
+      </div>
+      <p class="candidature-skills-hint">Sélectionnez les compétences que vous possédez pour calculer votre score.</p>
+      <div class="candidature-skill-options">
+        <button
+          type="button"
+          class="candidature-skill-btn"
+          *ngFor="let skill of showOffreModal!.tags"
+          [class.selected]="selectedCandidatureSkills.includes(skill)"
+          (click)="toggleCandidatureSkill(skill)">
+          {{ skill }}
+        </button>
+      </div>
+      <div class="candidature-skill-input">
+        <input type="text" [(ngModel)]="customCandidatureSkill" placeholder="Ajouter une compétence" (keyup.enter)="addCustomCandidatureSkill()">
+        <button type="button" class="btn-secondary" (click)="addCustomCandidatureSkill()">Ajouter</button>
+      </div>
+    </div>
+
     <div class="modal-actions">
       <ng-container *ngIf="!showOffreModal!.postule">
-        <button class="btn-primary" [disabled]="postingCandidature" (click)="postuler(showOffreModal!)">
+        <button class="btn-primary" [disabled]="postingCandidature || !selectedCandidatureSkills.length" (click)="postuler(showOffreModal!)">
           <i class="fas fa-rocket"></i> {{ postingCandidature ? 'Envoi...' : 'Postuler à cette offre' }}
         </button>
       </ng-container>

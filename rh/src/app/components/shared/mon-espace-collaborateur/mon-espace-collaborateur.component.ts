@@ -22,6 +22,7 @@ import {
   TYPE_LABELS
 } from '../../../models/demande-conge';
 import { DemandeCongeService } from '../../../services/demande-conge.service';
+import { computeMatchingScore, inferProfileSkills } from '../../../utils/matching-score.util';
 
 export type FormationStatus = 'enrolled' | 'completed' | 'pending' | 'available';
 export type CongeForm = CreateDemandeConge & { commentaire?: string };
@@ -100,6 +101,8 @@ export class MonEspaceCollaborateurComponent implements OnInit {
 
   showCongeModal = false;
   showOffreModal: OffreInterne | null = null;
+  selectedCandidatureSkills: string[] = [];
+  customCandidatureSkill = '';
   showFormationModal: Formation | null = null;
   showDemandeFormationModal = false;
   showEditDemandeFormationModal = false;
@@ -282,6 +285,35 @@ export class MonEspaceCollaborateurComponent implements OnInit {
   openOffreModal(event: MouseEvent, offre: OffreInterne): void {
     event.stopPropagation();
     this.showOffreModal = offre;
+    this.resetCandidatureSkills(offre);
+  }
+
+  toggleCandidatureSkill(skill: string): void {
+    if (this.selectedCandidatureSkills.includes(skill)) {
+      this.selectedCandidatureSkills = this.selectedCandidatureSkills.filter((item) => item !== skill);
+      return;
+    }
+    this.selectedCandidatureSkills = [...this.selectedCandidatureSkills, skill];
+  }
+
+  addCustomCandidatureSkill(): void {
+    const skill = this.customCandidatureSkill.trim();
+    if (!skill || this.selectedCandidatureSkills.some((item) => item.toLowerCase() === skill.toLowerCase())) {
+      this.customCandidatureSkill = '';
+      return;
+    }
+    this.selectedCandidatureSkills = [...this.selectedCandidatureSkills, skill];
+    this.customCandidatureSkill = '';
+  }
+
+  estimatedMatchingScore(): number {
+    return computeMatchingScore(this.selectedCandidatureSkills, this.showOffreModal?.tags ?? []);
+  }
+
+  private resetCandidatureSkills(offre: OffreInterne): void {
+    const profileText = `${this.employe.poste} ${this.employe.dept}`;
+    this.selectedCandidatureSkills = inferProfileSkills(profileText, offre.tags);
+    this.customCandidatureSkill = '';
   }
 
   postuler(offre: OffreInterne): void {
@@ -294,6 +326,10 @@ export class MonEspaceCollaborateurComponent implements OnInit {
       this.showToast('Vous avez déjà postulé à cette offre');
       return;
     }
+    if (!this.selectedCandidatureSkills.length) {
+      this.showToast('Sélectionnez au moins une compétence pour calculer le matching');
+      return;
+    }
 
     const candidaturePayload: BackendCandidature = {
       nomCandidat: `${this.employe.prenom} ${this.employe.nom}`.trim(),
@@ -303,6 +339,7 @@ export class MonEspaceCollaborateurComponent implements OnInit {
       telephone: this.employe.telephone,
       poste: this.employe.poste,
       departement: this.employe.dept,
+      competenceTags: [...this.selectedCandidatureSkills],
       offreId: offre.id,
       titreOffre: offre.title
     };
@@ -312,6 +349,7 @@ export class MonEspaceCollaborateurComponent implements OnInit {
       next: () => {
         this.postingCandidature = false;
         this.showOffreModal = null;
+        this.selectedCandidatureSkills = [];
         this.loadOffresInternes();
         this.showToast(`Candidature envoyée pour "${offre.title}"`);
         this.cdr.detectChanges();

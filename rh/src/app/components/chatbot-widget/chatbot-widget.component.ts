@@ -111,33 +111,25 @@ export class ChatbotWidgetComponent implements OnInit, OnDestroy {
   }
 
   private resolveScope(): string {
+    const user = this.getStoredUser();
+    if (user?.role === 'ADMIN' || user?.role === 'MANAGER') {
+      return 'ADMIN';
+    }
+    if (user?.role === 'RH') {
+      return 'RH';
+    }
+    if (user?.role === 'EMPLOYE') {
+      return 'EMPLOYE';
+    }
+
     const url = this.router.url;
     if (url.startsWith('/admin')) {
       return 'ADMIN';
     }
-
     if (url.startsWith('/rh')) {
       return 'RH';
     }
-
     if (url.startsWith('/dashboard')) {
-      return 'EMPLOYE';
-    }
-
-    if (url.startsWith('/offre') || url.startsWith('/postuler') || url.startsWith('/home') || url === '/') {
-      return 'VISITEUR';
-    }
-
-    const user = this.getStoredUser();
-    if (user?.role === 'ADMIN') {
-      return 'ADMIN';
-    }
-
-    if (user?.role === 'RH') {
-      return 'RH';
-    }
-
-    if (user?.role === 'EMPLOYE') {
       return 'EMPLOYE';
     }
 

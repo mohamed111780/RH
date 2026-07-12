@@ -1,10 +1,12 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
-import { CAREER_OFFERS, CareerOffer } from '../career-offers';
+import { CareerOffer } from '../career-offers';
 import { CandidatureService } from '../../../services/candidature.service';
+import { OffreEmploiService } from '../../../services/offre-emploi.service';
 import { Candidature } from '../../../models/candidature';
+import { computeMatchingScore } from '../../../utils/matching-score.util';
 
 @Component({
   selector: 'app-apply-form',
@@ -13,8 +15,10 @@ import { Candidature } from '../../../models/candidature';
   templateUrl: './apply-form.component.html',
   styleUrls: ['./apply-form.component.css']
 })
-export class ApplyFormComponent {
+export class ApplyFormComponent implements OnInit {
   offer: CareerOffer | undefined;
+  loadingOffer = true;
+  loadError = '';
   candidate = { name: '', email: '', phone: '', cv: '', message: '' };
   customSkill = '';
   selectedSkills: string[] = [];
@@ -32,13 +36,32 @@ export class ApplyFormComponent {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private candidatureService: CandidatureService
-  ) {
+    private candidatureService: CandidatureService,
+    private offreEmploiService: OffreEmploiService
+  ) {}
+
+  ngOnInit(): void {
     const id = Number(this.route.snapshot.paramMap.get('id'));
-    this.offer = CAREER_OFFERS.find(o => o.id === id);
-    if (!this.offer) {
+    if (!id) {
       this.router.navigate(['/home']);
+      return;
     }
+
+    this.offreEmploiService.getOffreById(id).subscribe({
+      next: (offre) => {
+        this.offer = {
+          ...offre,
+          company: 'ItVision',
+          location: 'Tunis, Tunisie'
+        };
+        this.loadingOffer = false;
+      },
+      error: () => {
+        this.loadError = 'Offre introuvable';
+        this.loadingOffer = false;
+        this.router.navigate(['/home']);
+      }
+    });
   }
 
   toggleSkill(skill: string): void {
@@ -98,15 +121,7 @@ export class ApplyFormComponent {
   }
 
   estimatedScore(): number {
-    const offerSkills = this.offer?.skills ?? [];
-    if (!offerSkills.length || !this.selectedSkills.length) {
-      return 0;
-    }
-
-    const normalizedCandidateSkills = new Set(this.selectedSkills.map(skill => this.normalizeSkill(skill)));
-    const matches = offerSkills.filter(skill => normalizedCandidateSkills.has(this.normalizeSkill(skill))).length;
-
-    return Math.round((matches * 100) / offerSkills.length);
+    return computeMatchingScore(this.selectedSkills, this.offer?.skills ?? []);
   }
 
   submitApplication(): void {
@@ -137,9 +152,5 @@ export class ApplyFormComponent {
         this.submitError = String(err?.error?.message || err?.error || 'Erreur lors de l\'envoi de la candidature');
       }
     });
-  }
-
-  private normalizeSkill(skill: string): string {
-    return skill.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   }
 }
