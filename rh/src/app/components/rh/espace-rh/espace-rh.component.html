@@ -723,11 +723,26 @@
         </div>
 
         <div class="kanban-offre-header">
-          <div>
+          <div class="kanban-offre-main">
+            <span class="kanban-eyebrow">Offre sélectionnée</span>
             <h3>{{ kanbanOffre.title }}</h3>
-            <p>{{ kanbanOffre.dept }} · {{ kanbanOffre.niveauLabel }} · {{ offreStatusLabel(kanbanOffre.statut) }} · Publié {{ kanbanOffre.date }}</p>
+            <p class="kanban-offre-desc">{{ kanbanOffre.description }}</p>
+            <div class="kanban-offre-meta">
+              <span><i class="fas fa-building"></i> {{ kanbanOffre.dept }}</span>
+              <span><i class="fas fa-layer-group"></i> {{ kanbanOffre.niveauLabel }}</span>
+              <span><i class="fas fa-file-contract"></i> {{ kanbanOffre.contrat }}</span>
+              <span><i class="fas fa-circle"></i> {{ offreStatusLabel(kanbanOffre.statut) }}</span>
+              <span><i class="fas fa-calendar"></i> Publié {{ kanbanOffre.date }}</span>
+            </div>
+            <div class="kanban-offre-tags" *ngIf="kanbanOffre.tags.length">
+              <span class="offre-tag" *ngFor="let tag of kanbanOffre.tags">{{ tag }}</span>
+            </div>
           </div>
-          <div style="display:flex; align-items:center; gap:12px;">
+          <div class="kanban-offre-side">
+            <div class="kanban-summary">
+              <strong>{{ kanbanOffre.candidatures }}</strong>
+              <span>Candidatures</span>
+            </div>
             <div class="kanban-ai-info">
               <i class="fas fa-robot"></i>
               <span>Tri IA activé — Score de matching par compétences</span>
@@ -741,7 +756,7 @@
         </div>
 
         <div class="kanban-board" *ngIf="currentKanbanData && !loadingKanban">
-          <div class="kanban-col" *ngFor="let col of kanbanCols" (dragover)="allowDrop($event)" (drop)="onDrop($event, col.key === 'trier' ? 'EN_ATTENTE' : col.key === 'entretien' ? 'ACCEPTEE' : 'REFUSEE')">
+          <div class="kanban-col" [ngClass]="'kanban-col-' + col.key" *ngFor="let col of kanbanCols" (dragover)="allowDrop($event)" (drop)="onDrop($event, col.key === 'trier' ? 'EN_ATTENTE' : col.key === 'entretien' ? 'ACCEPTEE' : 'REFUSEE')">
             <div class="kanban-col-header">
               <div class="kanban-col-title">
                 <div class="col-dot" [ngClass]="col.dotClass"></div>
@@ -750,6 +765,9 @@
               </div>
               <span class="col-count" [ngClass]="col.countClass">{{ getKanbanCol(col.key).length }}</span>
             </div>
+            <p class="kanban-col-hint" *ngIf="col.key === 'trier'">Nouvelles candidatures à qualifier.</p>
+            <p class="kanban-col-hint" *ngIf="col.key === 'entretien'">Profils retenus pour échange.</p>
+            <p class="kanban-col-hint" *ngIf="col.key === 'rejetee'">Candidatures refusées.</p>
 
             <div class="candidature-card" *ngFor="let c of getKanbanCol(col.key)" draggable="true" (dragstart)="onDragStart(c)" (dragend)="onDragEnd()">
               <div class="cand-header">
@@ -768,18 +786,30 @@
                   <div class="score-fill" [ngClass]="scoreClass(c.score)" [style.width]="c.score + '%'"></div>
                 </div>
               </div>
-              <div class="cand-tags">
-                <span class="cand-tag" *ngFor="let t of c.tags"
-                      [ngClass]="tagMatchClass(t, currentKanbanData!.offreTags)">{{ t }}</span>
+              <div class="cand-tags-section" *ngIf="c.offerTags.length">
+                <span class="cand-tags-label">Compétences offre</span>
+                <div class="cand-tags">
+                  <span class="cand-tag" *ngFor="let t of c.offerTags"
+                        [ngClass]="tagMatchClass(t, currentKanbanData!.offreTags)">{{ t }}</span>
+                </div>
+              </div>
+              <div class="cand-tags-section custom" *ngIf="c.customTags.length">
+                <span class="cand-tags-label">Tags supplémentaires</span>
+                <div class="cand-tags">
+                  <span class="cand-tag custom" *ngFor="let t of c.customTags">{{ t }}</span>
+                </div>
               </div>
               <div class="cand-action-row">
-                <button class="cand-action-btn" *ngIf="col.key==='trier'" style="color:var(--accent);" (click)="showToast('Entretien planifié pour ' + c.name)">
-                  <i class="fas fa-calendar-plus"></i> Entretien
+                <button class="cand-action-btn details" type="button" (click)="openCandidatureDetails(c)">
+                  <i class="fas fa-eye"></i> Détails
                 </button>
-                <button class="cand-action-btn reject" *ngIf="col.key==='trier'" style="color:var(--accent5);" (click)="showToast(c.name + ' rejeté')">
-                  <i class="fas fa-times"></i>
+                <button class="cand-action-btn promote" type="button" *ngIf="col.key==='trier'" [disabled]="updatingCandidatureId === c.id" (click)="updateCandidatureStatus(c, 'ACCEPTEE')">
+                  <i class="fas fa-calendar-plus"></i> {{ updatingCandidatureId === c.id ? '...' : 'Entretien' }}
                 </button>
-                <button class="cand-action-btn" *ngIf="col.key==='entretien'" style="color:var(--teal);" (click)="showToast('Offre envoyée à ' + c.name + ' 🎉')">
+                <button class="cand-action-btn reject" type="button" *ngIf="col.key==='trier'" [disabled]="updatingCandidatureId === c.id" (click)="updateCandidatureStatus(c, 'REFUSEE')" title="Rejeter">
+                  <i class="fas fa-times"></i> Rejeter
+                </button>
+                <button class="cand-action-btn send" type="button" *ngIf="col.key==='entretien'" (click)="sendOfferToCandidate(c)">
                   <i class="fas fa-paper-plane"></i> Envoyer offre
                 </button>
               </div>
@@ -792,7 +822,12 @@
 
     <!-- ═══════════════════ MON ESPACE COLLABORATEUR ═══════════════════ -->
     <div class="page" [class.active]="activePage==='mon-espace'">
-      <app-mon-espace-collaborateur [theme]="'rh'"></app-mon-espace-collaborateur>
+      <app-mon-espace-collaborateur
+        [theme]="'rh'"
+        layout="stacked"
+        eyebrow="Espace RH"
+        subtitle="Demandes de congés, formations et mobilité interne réunies dans une seule page claire.">
+      </app-mon-espace-collaborateur>
     </div>
 
     <!-- ═══════════════════ ANALYTICS IA ═══════════════════ -->
@@ -1045,6 +1080,65 @@
       <button class="btn-primary" [disabled]="deletingEmployeeId === confirmDeleteEmployee?.id" (click)="confirmDelete()" style="background: linear-gradient(135deg, var(--teal2), var(--accent2));">
         Supprimer
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ MODAL : DÉTAILS CANDIDATURE ════════════════════ -->
+<div class="modal-overlay" [class.open]="candidatureDetailModalOpen" (click)="$event.target === $event.currentTarget && closeCandidatureDetails()">
+  <div class="modal candidature-detail-modal" *ngIf="selectedCandidature as c">
+    <div class="candidature-detail-header">
+      <div class="cand-avatar large" [style.background]="c.color" [style.color]="c.tc">{{ c.initials }}</div>
+      <div>
+        <h2>{{ c.name }}</h2>
+        <p>{{ c.titreOffre || kanbanOffre?.title || 'Offre non renseignée' }}</p>
+        <span class="status-pill" [ngClass]="c.statut === 'ACCEPTEE' ? 'active' : c.statut === 'REFUSEE' ? 'absent' : 'pending'">
+          {{ candidatureStatutLabel(c.statut) }}
+        </span>
+      </div>
+      <div class="candidature-detail-score">
+        <strong [style.color]="scoreColor(c.score)">{{ c.score }}%</strong>
+        <span>Score IA</span>
+      </div>
+    </div>
+
+    <div class="candidature-detail-grid">
+      <div class="detail-item"><span>Email</span><strong>{{ c.email || '-' }}</strong></div>
+      <div class="detail-item"><span>Téléphone</span><strong>{{ c.telephone || '-' }}</strong></div>
+      <div class="detail-item"><span>Poste visé</span><strong>{{ c.poste || '-' }}</strong></div>
+      <div class="detail-item"><span>Département</span><strong>{{ c.departement || '-' }}</strong></div>
+      <div class="detail-item" *ngIf="c.employeId"><span>Matricule employé</span><strong>{{ c.matriculeEmploye || '-' }}</strong></div>
+      <div class="detail-item" *ngIf="c.employeId"><span>Candidature interne</span><strong>Oui (ID {{ c.employeId }})</strong></div>
+      <div class="detail-item full">
+        <span>CV / Portfolio</span>
+        <strong *ngIf="c.cv && (c.cv.startsWith('http://') || c.cv.startsWith('https://'))">
+          <a [href]="c.cv" target="_blank" rel="noopener noreferrer">{{ c.cv }}</a>
+        </strong>
+        <strong *ngIf="!c.cv">-</strong>
+        <strong *ngIf="c.cv && !c.cv.startsWith('http://') && !c.cv.startsWith('https://')">{{ c.cv }}</strong>
+      </div>
+      <div class="detail-item full">
+        <span>Lettre de motivation / Message</span>
+        <p class="detail-text">{{ c.lettreMotivation || 'Aucun message fourni.' }}</p>
+      </div>
+    </div>
+
+    <div class="candidature-detail-tags" *ngIf="c.offerTags.length">
+      <h3>Compétences liées à l'offre</h3>
+      <div class="cand-tags">
+        <span class="cand-tag" *ngFor="let t of c.offerTags" [ngClass]="tagMatchClass(t, currentKanbanData?.offreTags || [])">{{ t }}</span>
+      </div>
+    </div>
+
+    <div class="candidature-detail-tags custom" *ngIf="c.customTags.length">
+      <h3>Tags supplémentaires du candidat</h3>
+      <div class="cand-tags">
+        <span class="cand-tag custom" *ngFor="let t of c.customTags">{{ t }}</span>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" type="button" (click)="closeCandidatureDetails()">Fermer</button>
     </div>
   </div>
 </div>

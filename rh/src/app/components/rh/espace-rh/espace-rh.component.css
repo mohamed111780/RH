@@ -2432,26 +2432,99 @@
 }
 
 .kanban-offre-header {
-  background: var(--card);
-  border: 1px solid var(--border);
+  background: linear-gradient(135deg, #ffffff 0%, #f6faf7 100%);
+  border: 1px solid rgba(58,90,82,0.16);
   border-radius: var(--radius);
-  padding: 18px 22px;
+  padding: 22px;
   margin-bottom: 22px;
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 18px;
   justify-content: space-between;
+  box-shadow: 0 18px 42px rgba(36,57,52,0.10);
+}
+
+.kanban-offre-main {
+  min-width: 0;
+}
+
+.kanban-eyebrow {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .kanban-offre-header h3 {
   font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 700;
-  margin-bottom: 4px;
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: var(--text);
 }
 
-.kanban-offre-header p {
+.kanban-offre-desc {
+  max-width: 840px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text2);
+  margin-bottom: 12px;
+}
+
+.kanban-offre-meta,
+.kanban-offre-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.kanban-offre-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(58,90,82,0.07);
+  color: var(--text2);
   font-size: 12px;
-  color: var(--text3);
+}
+
+.kanban-offre-tags {
+  margin-top: 12px;
+}
+
+.kanban-offre-side {
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 10px;
+}
+
+.kanban-summary {
+  width: 100%;
+  padding: 13px 16px;
+  border-radius: 10px;
+  background: rgba(226,171,62,0.12);
+  border: 1px solid rgba(226,171,62,0.22);
+  text-align: right;
+}
+
+.kanban-summary strong {
+  display: block;
+  color: var(--accent);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.kanban-summary span {
+  color: var(--text2);
+  font-size: 12px;
 }
 
 .kanban-ai-info {
@@ -2475,21 +2548,35 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 18px;
+  align-items: start;
 }
 
 .kanban-col {
-  background: linear-gradient(180deg, #f6faf7, #eef6f0);
-  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.84);
+  border: 1px solid rgba(58,90,82,0.13);
   border-radius: var(--radius);
   padding: 16px;
   min-height: 480px;
+  box-shadow: 0 14px 30px rgba(36,57,52,0.06);
+}
+
+.kanban-col-trier {
+  border-top: 4px solid var(--accent4);
+}
+
+.kanban-col-entretien {
+  border-top: 4px solid var(--accent);
+}
+
+.kanban-col-rejetee {
+  border-top: 4px solid var(--accent5);
 }
 
 .kanban-col-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 6px;
 }
 
 .kanban-col-title {
@@ -2536,19 +2623,25 @@
   color: var(--accent5);
 }
 
+.kanban-col-hint {
+  margin: 0 0 14px;
+  color: var(--text3);
+  font-size: 12px;
+}
+
 .candidature-card {
   background: var(--card);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(58,90,82,0.12);
   border-radius: 11px;
   padding: 13px;
   margin-bottom: 9px;
-  cursor: pointer;
+  cursor: grab;
   box-shadow: 0 8px 18px rgba(36,57,52,0.05);
   transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 .candidature-card:hover {
   border-color: rgba(226,171,62,0.40);
-  transform: translateX(5px);
+  transform: translateY(-2px);
   box-shadow: var(--glow2);
 }
 
@@ -2638,7 +2731,29 @@
   display: flex;
   flex-wrap: wrap;
   gap: 3px;
+  margin-top: 4px;
+}
+
+.cand-tags-section {
   margin-top: 7px;
+}
+
+.cand-tags-section.custom {
+  margin-top: 6px;
+}
+
+.cand-tags-label {
+  display: block;
+  font-size: 8.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text3);
+  margin-bottom: 2px;
+}
+
+.cand-tags-section.custom .cand-tags-label {
+  color: var(--purple);
 }
 
 /* CONFIRM DELETE MODAL (green/yellow theme) */
@@ -2718,6 +2833,115 @@
   color: var(--text3);
   border: 1px solid var(--border);
 }
+.cand-tag.custom {
+  background: rgba(138,123,181,0.14);
+  color: var(--purple);
+  border: 1px solid rgba(138,123,181,0.28);
+}
+
+.candidature-detail-modal {
+  max-width: 720px;
+}
+
+.candidature-detail-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.cand-avatar.large {
+  width: 52px;
+  height: 52px;
+  font-size: 16px;
+}
+
+.candidature-detail-header h2 {
+  margin-bottom: 4px;
+}
+
+.candidature-detail-header p {
+  color: var(--text3);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.candidature-detail-score {
+  text-align: right;
+}
+
+.candidature-detail-score strong {
+  display: block;
+  font-size: 24px;
+  font-family: var(--font-disp);
+}
+
+.candidature-detail-score span {
+  font-size: 11px;
+  color: var(--text3);
+}
+
+.candidature-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.detail-item {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.detail-item.full {
+  grid-column: 1 / -1;
+}
+
+.detail-item span {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text3);
+  margin-bottom: 4px;
+}
+
+.detail-item strong,
+.detail-item p {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.detail-item a {
+  color: var(--teal2);
+  word-break: break-all;
+}
+
+.detail-text {
+  white-space: pre-wrap;
+}
+
+.candidature-detail-tags {
+  margin-bottom: 14px;
+}
+
+.candidature-detail-tags h3 {
+  font-size: 12px;
+  color: var(--text2);
+  margin-bottom: 8px;
+}
+
+.candidature-detail-tags.custom h3 {
+  color: var(--purple);
+}
+
+.cand-action-btn.details {
+  color: var(--teal2);
+}
 
 .cand-date {
   font-size: 9.5px;
@@ -2744,14 +2968,35 @@
   transition: background 0.2s, transform 0.2s, border-color 0.2s;
 }
 
+.cand-action-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  transform: none;
+}
+
 .cand-action-btn:hover {
   background: rgba(226,171,62,0.14);
   border-color: rgba(226,171,62,0.32);
   transform: translateY(-1px);
 }
 
+.cand-action-btn.promote {
+  color: var(--accent);
+  border-color: rgba(58,90,82,0.18);
+  background: rgba(58,90,82,0.06);
+}
+
 .cand-action-btn.reject {
-  flex: 0 0 auto;
+  flex: 1;
+  color: var(--accent5);
+  border-color: rgba(217,104,92,0.18);
+  background: rgba(217,104,92,0.08);
+}
+
+.cand-action-btn.send {
+  color: var(--teal);
+  border-color: rgba(79,155,138,0.20);
+  background: rgba(79,155,138,0.08);
 }
 
 .ai-badge {

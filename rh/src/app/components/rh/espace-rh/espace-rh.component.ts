@@ -13,11 +13,10 @@ import { AuthService } from '../../../services/auth/auth.service';
 import { DemandeCongeService } from '../../../services/demande-conge.service';
 import { EmployeService } from '../../../services/employe.service';
 import { FormationService } from '../../../services/formation.service';
-import { DemandeFormationService } from '../../../services/demande-formation.service';
 import { OffreEmploiService } from '../../../services/offre-emploi.service';
 import { CandidatureService } from '../../../services/candidature.service';
 import { MonEspaceCollaborateurComponent } from '../../shared/mon-espace-collaborateur/mon-espace-collaborateur.component';
-import { computeMatchingScore, inferProfileSkills, normalizeSkill } from '../../../utils/matching-score.util';
+import { computeMatchingScore, normalizeSkill, splitCandidateTags } from '../../../utils/matching-score.util';
 
 export interface Employee {
   id: number;
@@ -80,8 +79,19 @@ export interface Candidature {
   tc: string;
   email: string;
   tags: string[];
+  offerTags: string[];
+  customTags: string[];
   score: number;
   statut: 'EN_ATTENTE' | 'ACCEPTEE' | 'REFUSEE';
+  telephone?: string;
+  cv?: string;
+  lettreMotivation?: string;
+  poste?: string;
+  departement?: string;
+  matriculeEmploye?: string;
+  employeId?: number;
+  titreOffre?: string;
+  offreId?: number;
 }
 
 export interface KanbanData {
@@ -139,7 +149,6 @@ export class EspaceRhComponent implements OnInit {
     private employeService: EmployeService,
     private demandeCongeService: DemandeCongeService,
     private formationService: FormationService,
-    private demandeFormationService: DemandeFormationService,
     private offreEmploiService: OffreEmploiService,
     private candidatureService: CandidatureService,
     private router: Router
@@ -154,11 +163,6 @@ export class EspaceRhComponent implements OnInit {
   toastVisible: boolean = false;
   toastType: 'success' | 'error' | 'info' = 'success';
   private toastTimer: any;
-  // Feedback modal for create/cancel actions
-  showFeedbackModal: boolean = false;
-  feedbackModalMessage: string = '';
-  feedbackModalType: 'success' | 'error' = 'success';
-  private feedbackModalTimer: any;
 
   // Profil photo (aperçu local)
   rhPhotoUrl: string | null = null;
@@ -189,28 +193,6 @@ export class EspaceRhComponent implements OnInit {
   employeeForm: EmployeeForm = this.getEmptyEmployeeForm();
   readonly employeeRoleOptions = ['ADMIN', 'MANAGER', 'RH', 'EMPLOYE'];
 
-  // Mon espace RH
-  currentUserId: number | null = null;
-  userDisplayName: string = 'Responsable RH';
-  showCongeForm: boolean = false;
-  editingConge: DemandeConge | null = null;
-  congeForm: { dateDebut: string; dateFin: string; type: TypeConge } = { dateDebut: '', dateFin: '', type: 'PAYE' };
-  demandesConge: DemandeConge[] = [];
-  loadingDemandesConge: boolean = false;
-  submittingConge: boolean = false;
-  loadingMesFormations: boolean = false;
-  selectedFormationForRequest: Formation | null = null;
-  demandeFormationForm = { justification: '' };
-  selectedFormationRequest: Formation | null = null;
-  editDemandeFormationForm = { justification: '' };
-  submittingFormationRequest: boolean = false;
-  updatingFormationRequest: boolean = false;
-  cancellingFormationRequest: boolean = false;
-  formationRequestError: string = '';
-  formationRequestSuccess: string = '';
-  loadingMesOffres: boolean = false;
-  postingOffreCandidatureId: number | null = null;
-
   // Modal congé
   modalCongeOpen: boolean = false;
   loadingLeaveRequests: boolean = false;
@@ -238,6 +220,9 @@ export class EspaceRhComponent implements OnInit {
   loadingOffres: boolean = false;
   savingOffre: boolean = false;
   loadingKanban: boolean = false;
+  updatingCandidatureId: number | null = null;
+  candidatureDetailModalOpen: boolean = false;
+  selectedCandidature: Candidature | null = null;
 
   // Calendrier mois/année
   calMonth: number = new Date().getMonth();
@@ -262,8 +247,6 @@ export class EspaceRhComponent implements OnInit {
   leaveRequests: DemandeConge[] = [];
 
   formations: Formation[] = [];
-  mesFormations: Formation[] = [];
-  mesOffresInternes: JobOffer[] = [];
 
   readonly activityFeed: ActivityItem[] = [
     { color: 'var(--teal)', message: '🤖 IA a trié 8 candidatures pour <strong>Lead Dev React</strong>', time: 'Il y a 2h' },
@@ -535,6 +518,22 @@ export class EspaceRhComponent implements OnInit {
     return computeMatchingScore(candTags, offreTags);
   }
 
+  openCandidatureDetails(candidature: Candidature): void {
+    this.selectedCandidature = candidature;
+    this.candidatureDetailModalOpen = true;
+  }
+
+  closeCandidatureDetails(): void {
+    this.candidatureDetailModalOpen = false;
+    this.selectedCandidature = null;
+  }
+
+  candidatureStatutLabel(statut?: string): string {
+    if (statut === 'ACCEPTEE') return 'Entretien';
+    if (statut === 'REFUSEE') return 'Rejetée';
+    return 'À trier';
+  }
+
   tagMatchClass(tag: string, offreTags: string[]): string {
     const normalizedTag = normalizeSkill(tag);
     const isMatch = offreTags.some((ot) => normalizeSkill(ot) === normalizedTag);
@@ -616,7 +615,6 @@ export class EspaceRhComponent implements OnInit {
       this.loadOffres();
     }
     if (pageId === 'conges') this.loadLeaveRequests();
-    if (pageId === 'mon-espace') this.loadPersonalData();
   }
 
   logoutRh(): void {
@@ -646,410 +644,6 @@ export class EspaceRhComponent implements OnInit {
       this.showToast('Photo de profil mise \u00e0 jour');
     };
     reader.readAsDataURL(file);
-  }
-
-  // ───────────────────────── MON ESPACE RH ─────────────────────────
-
-  openCongeForm(): void {
-    this.showCongeForm = true;
-    this.editingConge = null;
-    this.congeForm = { dateDebut: '', dateFin: '', type: 'PAYE' };
-  }
-
-  closeCongeForm(): void {
-    this.showCongeForm = false;
-    this.editingConge = null;
-    this.congeForm = { dateDebut: '', dateFin: '', type: 'PAYE' };
-  }
-
-  submitConge(): void {
-    if (!this.currentUserId) {
-      this.showToast('Profil RH introuvable');
-      return;
-    }
-    if (!this.congeForm.dateDebut || !this.congeForm.dateFin) {
-      this.showToast('Veuillez renseigner les dates');
-      return;
-    }
-
-    this.submittingConge = true;
-    const requestPayload: CreateDemandeConge = {
-      dateDebut: this.congeForm.dateDebut,
-      dateFin: this.congeForm.dateFin,
-      type: this.congeForm.type
-    };
-
-    const isEdit = !!this.editingConge?.id;
-    const handlers = {
-      next: () => {
-        this.submittingConge = false;
-        this.closeCongeForm();
-        this.loadPersonalData();
-        this.cdr.detectChanges();
-        this.openFeedbackModal(
-          isEdit ? 'Demande de congé mise à jour' : 'Demande de congé soumise',
-          'success'
-        );
-      },
-      error: () => {
-        this.submittingConge = false;
-        this.openFeedbackModal('Impossible d\'enregistrer la demande de congé', 'error');
-        this.cdr.detectChanges();
-      }
-    };
-
-    if (this.editingConge?.id) {
-      this.demandeCongeService.updateDemande(this.editingConge.id, {
-        ...this.editingConge,
-        debut: this.congeForm.dateDebut,
-        fin: this.congeForm.dateFin,
-        typeConge: this.congeForm.type,
-        statutDemande: this.editingConge.statutDemande,
-        matriculeEmploye: this.editingConge.matriculeEmploye,
-        nomEmploye: this.editingConge.nomEmploye,
-        prenomEmploye: this.editingConge.prenomEmploye
-      }).subscribe(handlers);
-    } else {
-      this.demandeCongeService.createDemande(this.currentUserId, requestPayload).subscribe(handlers);
-    }
-  }
-
-  editCongeRequest(conge: DemandeConge): void {
-    if (conge.statutDemande !== 'EN_ATTENTE') {
-      this.showToast('Seules les demandes en attente peuvent être modifiées');
-      return;
-    }
-    this.editingConge = conge;
-    this.congeForm = { dateDebut: this.toDateInputValue(conge.debut), dateFin: this.toDateInputValue(conge.fin), type: conge.typeConge };
-    this.showCongeForm = true;
-  }
-
-  cancelCongeRequest(conge: DemandeConge): void {
-    if (!conge.id) return;
-    this.demandeCongeService.deleteDemande(conge.id).subscribe({
-      next: () => {
-        this.loadPersonalData();
-        this.openFeedbackModal('Demande de congé annulée', 'success');
-        this.cdr.detectChanges();
-      },
-      error: () => this.openFeedbackModal('Erreur lors de l\'annulation', 'error')
-    });
-  }
-
-  openFeedbackModal(message: string, type: 'success' | 'error' = 'success'): void {
-    this.feedbackModalMessage = message;
-    this.feedbackModalType = type;
-    this.showFeedbackModal = true;
-    if (this.feedbackModalTimer) clearTimeout(this.feedbackModalTimer);
-    this.feedbackModalTimer = setTimeout(() => this.closeFeedbackModal(), 3600);
-  }
-
-  closeFeedbackModal(): void {
-    this.showFeedbackModal = false;
-    this.feedbackModalMessage = '';
-    if (this.feedbackModalTimer) clearTimeout(this.feedbackModalTimer);
-  }
-
-  openFormationRequest(formation: Formation): void {
-    if (formation.status === 'pending' || formation.status === 'enrolled') {
-      this.showToast('Une demande existe déjà pour cette formation');
-      return;
-    }
-    this.selectedFormationForRequest = formation;
-    this.demandeFormationForm = { justification: '' };
-    this.formationRequestError = '';
-    this.formationRequestSuccess = '';
-  }
-
-  submitFormationRequest(): void {
-    if (!this.currentUserId || !this.selectedFormationForRequest?.id) {
-      this.showToast('Profil utilisateur ou formation introuvable');
-      return;
-    }
-    const justification = this.demandeFormationForm.justification.trim();
-    if (!justification) {
-      this.formationRequestError = 'Veuillez saisir une justification';
-      return;
-    }
-    this.submittingFormationRequest = true;
-    this.formationService.getFormationById(Number(this.selectedFormationForRequest.id)).subscribe({
-      next: () => {
-        this.demandeFormationService.createDemande(this.currentUserId!, Number(this.selectedFormationForRequest?.id), { justification }).subscribe({
-          next: () => {
-            this.submittingFormationRequest = false;
-            this.formationRequestSuccess = 'Demande envoyée';
-            this.loadPersonalData();
-            this.selectedFormationForRequest = null;
-            this.cdr.detectChanges();
-          },
-          error: () => {
-            this.submittingFormationRequest = false;
-            this.formationRequestError = 'Impossible d\'envoyer la demande';
-            this.cdr.detectChanges();
-          }
-        });
-      },
-      error: () => {
-        this.submittingFormationRequest = false;
-        this.formationRequestError = 'Formation introuvable';
-        this.cdr.detectChanges();
-      }
-    });
-  }
-
-  editFormationRequest(formation: Formation): void {
-    if (formation.status !== 'pending' || !formation.demandeId) {
-      this.showToast('Seules les demandes en attente peuvent être modifiées');
-      return;
-    }
-    this.selectedFormationRequest = formation;
-    this.editDemandeFormationForm = { justification: formation.justification || '' };
-  }
-
-  updateFormationRequest(): void {
-    if (!this.selectedFormationRequest?.demandeId) {
-      this.formationRequestError = 'Demande introuvable';
-      return;
-    }
-    const justification = this.editDemandeFormationForm.justification.trim();
-    if (!justification) {
-      this.formationRequestError = 'Veuillez saisir une justification';
-      return;
-    }
-    this.updatingFormationRequest = true;
-    this.demandeFormationService.updateDemande(this.selectedFormationRequest.demandeId, { justification, statutDemande: 'EN_ATTENTE' }).subscribe({
-      next: () => {
-        this.updatingFormationRequest = false;
-        this.selectedFormationRequest = null;
-        this.loadPersonalData();
-        this.showToast('Demande de formation mise à jour');
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.updatingFormationRequest = false;
-        this.formationRequestError = 'Impossible de modifier la demande';
-        this.cdr.detectChanges();
-      }
-    });
-  }
-
-  cancelFormationRequest(formation: Formation): void {
-    if (!formation.demandeId) return;
-    this.cancellingFormationRequest = true;
-    this.demandeFormationService.cancelDemande(formation.demandeId).subscribe({
-      next: () => {
-        this.cancellingFormationRequest = false;
-        this.loadPersonalData();
-        this.showToast('Demande de formation annulée');
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.cancellingFormationRequest = false;
-        this.showToast('Erreur lors de l\'annulation');
-        this.cdr.detectChanges();
-      }
-    });
-  }
-
-  applyToOffre(offre: JobOffer): void {
-    if (!this.currentUserId) {
-      this.showToast('Profil utilisateur introuvable');
-      return;
-    }
-    if (offre.postule) {
-      this.showToast('Vous avez déjà postulé à cette offre');
-      return;
-    }
-    this.postingOffreCandidatureId = offre.id;
-    const payload: BackendCandidature = {
-      nomCandidat: this.userDisplayName,
-      email: this.authService.getUser()?.email || '',
-      employeId: this.currentUserId,
-      matriculeEmploye: '',
-      telephone: '',
-      poste: 'Responsable RH',
-      departement: 'RH',
-      competenceTags: inferProfileSkills('Responsable RH RH', offre.tags),
-      offreId: offre.id,
-      titreOffre: offre.title
-    };
-    this.candidatureService.postuler(offre.id, payload).subscribe({
-      next: () => {
-        this.postingOffreCandidatureId = null;
-        this.loadPersonalData();
-        this.showToast('Votre candidature a bien été envoyée');
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.postingOffreCandidatureId = null;
-        this.showToast('Impossible d\'envoyer la candidature');
-        this.cdr.detectChanges();
-      }
-    });
-  }
-
-  private loadCurrentRhProfile(): void {
-    const user = this.authService.getUser();
-    this.currentUserId = user?.id ?? null;
-    this.userDisplayName = `${user?.prenom || ''} ${user?.nom || ''}`.trim() || 'Responsable RH';
-  }
-
-  private loadPersonalData(): void {
-    if (!this.currentUserId) return;
-    this.loadPersonalConges();
-    this.loadPersonalFormations();
-    this.loadPersonalOffres();
-  }
-
-  private loadPersonalConges(): void {
-    if (!this.currentUserId) return;
-    this.loadingDemandesConge = true;
-    this.demandeCongeService.getDemandesByEmployeeId(this.currentUserId).subscribe({
-      next: (demandes) => {
-        this.demandesConge = demandes.sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
-        this.loadingDemandesConge = false;
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.loadingDemandesConge = false;
-        this.showToast('Impossible de charger vos congés');
-        this.cdr.detectChanges();
-      }
-    });
-  }
-
-  private loadPersonalFormations(): void {
-    if (!this.currentUserId) return;
-    this.loadingMesFormations = true;
-    forkJoin({
-      formations: this.formationService.getAllFormations(),
-      demandes: this.demandeFormationService.getByEmploye(this.currentUserId)
-    }).subscribe({
-      next: ({ formations, demandes }) => {
-        this.mesFormations = formations.map((formation) => this.mapFormationFromApi(formation));
-        this.applyDemandesFormation(this.mesFormations, demandes);
-        this.loadingMesFormations = false;
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.loadingMesFormations = false;
-        this.showToast('Impossible de charger vos formations');
-        this.cdr.detectChanges();
-      }
-    });
-  }
-
-  private loadPersonalOffres(): void {
-    if (!this.currentUserId) return;
-    this.loadingMesOffres = true;
-    forkJoin({
-      offres: this.offreEmploiService.getAllOffres(),
-      candidatures: this.candidatureService.getAll()
-    }).subscribe({
-      next: ({ offres, candidatures }) => {
-        const userCandidatures = new Set(
-          candidatures
-            .filter((candidature) => candidature.employeId === this.currentUserId)
-            .map((candidature) => candidature.offreId)
-            .filter((offreId): offreId is number => offreId != null)
-        );
-        this.mesOffresInternes = offres
-          .filter((offre) => offre.type === 'INTERNE')
-          .map((offre) => this.mapOffreInterneFromApi(offre, userCandidatures.has(offre.id ?? -1)));
-        this.loadingMesOffres = false;
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.loadingMesOffres = false;
-        this.showToast('Impossible de charger les offres internes');
-        this.cdr.detectChanges();
-      }
-    });
-  }
-
-  private applyDemandesFormation(formations: Formation[], demandes: any[]): void {
-    demandes.forEach((demande) => {
-      const formation = formations.find((item) => Number(item.id) === demande.formationId);
-      if (!formation) return;
-      formation.demandeId = demande.id;
-      formation.justification = demande.justification;
-      formation.dateInscription = new Date().toISOString().slice(0, 10);
-      formation.status = this.mapDemandeFormationStatus(demande.statutDemande);
-    });
-  }
-
-  private mapDemandeFormationStatus(statut: string): Formation['status'] {
-    if (statut === 'APPROUVEE') return 'enrolled';
-    if (statut === 'REFUSEE' || statut === 'ANNULEE') return 'available';
-    return 'pending';
-  }
-
-  private mapFormationFromApi(f: FormationApi): Formation {
-    const type = f.typeFormation || 'EN_LIGNE';
-    const tag = this.formationTag(type);
-    return {
-      id: f.id ?? '',
-      title: f.titre,
-      tag,
-      tagLabel: this.formationTagLabel(tag),
-      desc: f.description,
-      duration: this.formationDuration(f.dateDebut, f.dateFin),
-      rating: '4.7',
-      enrolled: Math.max(0, f.capacite),
-      status: 'available',
-      progress: 0
-    };
-  }
-
-  private mapOffreInterneFromApi(offre: OffreEmploi, postule: boolean): JobOffer {
-    return {
-      id: offre.id ?? 0,
-      title: offre.titre,
-      dept: offre.departement || 'General',
-      type: this.offreInterneType(offre.departement),
-      niveau: this.offreInterneNiveau(offre.niveau),
-      niveauLabel: offre.niveau || 'Non precise',
-      tags: offre.skills || [],
-      date: this.formatRelativeDate(offre.datePublication),
-      description: offre.description || 'Aucune description disponible.',
-      contrat: offre.contrat || 'CDI',
-      offreType: offre.type || 'INTERNE',
-      statut: offre.statut || 'OUVERTE',
-      candidatures: offre.candidatures ?? 0,
-      postule
-    };
-  }
-
-  private offreInterneType(departement?: string): 'tech' | 'design' | 'data' {
-    const normalized = (departement || '').toLowerCase();
-    if (normalized.includes('design')) return 'design';
-    if (normalized.includes('data') || normalized.includes('ia')) return 'data';
-    return 'tech';
-  }
-
-  private offreInterneNiveau(niveau?: string): 'junior' | 'mid' | 'senior' {
-    const normalized = (niveau || '').toLowerCase();
-    if (normalized.includes('junior')) return 'junior';
-    if (normalized.includes('mid')) return 'mid';
-    return 'senior';
-  }
-
-  private formationTag(typeFormation: string): 'tech' | 'soft' | 'lead' {
-    if (typeFormation === 'PRESENTIEL') return 'lead';
-    if (typeFormation === 'HYBRIDE') return 'soft';
-    return 'tech';
-  }
-
-  private formationTagLabel(tag: 'tech' | 'soft' | 'lead'): string {
-    return { tech: 'Tech', soft: 'Soft Skills', lead: 'Leadership' }[tag];
-  }
-
-  private formationDuration(dateDebut: string, dateFin: string): string {
-    if (!dateDebut || !dateFin) return 'A definir';
-    const start = new Date(dateDebut);
-    const end = new Date(dateFin);
-    const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
-    return `${days}j`;
   }
 
   // ───────────────────────── OFFRES ─────────────────────────
@@ -1212,22 +806,44 @@ export class EspaceRhComponent implements OnInit {
       return;
     }
 
-    this.candidatureService.changeStatut(this.draggedCandidature.id, targetStatus).subscribe({
+    this.updateCandidatureStatus(this.draggedCandidature, targetStatus);
+    this.draggedCandidature = null;
+  }
+
+  updateCandidatureStatus(candidature: Candidature, targetStatus: 'EN_ATTENTE' | 'ACCEPTEE' | 'REFUSEE'): void {
+    if (!candidature.id) {
+      this.showToast('Candidature introuvable');
+      return;
+    }
+    if (candidature.statut === targetStatus) {
+      this.showToast('La candidature est déjà dans cette colonne');
+      return;
+    }
+
+    this.updatingCandidatureId = candidature.id;
+    this.candidatureService.changeStatut(candidature.id, targetStatus).subscribe({
       next: () => {
         const currentOffre = this.currentOffres.find((offre) => offre.id === this.kanbanOffre?.id);
         if (currentOffre) {
           this.showKanban(currentOffre);
         }
-        this.draggedCandidature = null;
-        this.showToast('Statut candidature mis a jour');
+        this.updatingCandidatureId = null;
+        this.showToast(`Candidature de ${candidature.name} déplacée vers ${this.candidatureStatutLabel(targetStatus)}`);
         this.cdr.detectChanges();
       },
       error: () => {
-        this.draggedCandidature = null;
+        this.updatingCandidatureId = null;
         this.showToast('Erreur lors de la mise a jour du statut');
         this.cdr.detectChanges();
       }
     });
+  }
+
+  sendOfferToCandidate(candidature: Candidature): void {
+    const subject = encodeURIComponent(`Suite de votre candidature - ${this.kanbanOffre?.title || candidature.titreOffre || 'Offre interne'}`);
+    const body = encodeURIComponent(`Bonjour ${candidature.name},\n\nNous souhaitons donner suite à votre candidature pour ${this.kanbanOffre?.title || candidature.titreOffre || 'cette offre'}.\n\nCordialement,`);
+    window.location.href = `mailto:${candidature.email}?subject=${subject}&body=${body}`;
+    this.showToast(`Email d'offre préparé pour ${candidature.name}`);
   }
 
   // ───────────────────────── EMPLOYEES ─────────────────────────
@@ -1382,12 +998,10 @@ export class EspaceRhComponent implements OnInit {
   // ───────────────────────── LIFECYCLE ─────────────────────────
 
   ngOnInit(): void {
-    this.loadCurrentRhProfile();
     this.loadEmployees();
     this.loadLeaveRequests();
     this.loadFormations();
     this.loadOffres();
-    this.loadPersonalData();
   }
 
   // Calendar navigation
@@ -1716,6 +1330,7 @@ export class EspaceRhComponent implements OnInit {
 
   private mapBackendCandidatureToKanban(candidature: BackendCandidature, offreTags: string[]): Candidature {
     const tags = this.extractTagsFromCandidature(candidature);
+    const { offerSelected, custom } = splitCandidateTags(tags, offreTags);
     const palette = this.colorFromName(candidature.nomCandidat);
 
     return {
@@ -1727,8 +1342,19 @@ export class EspaceRhComponent implements OnInit {
       tc: palette.text,
       email: candidature.email,
       tags,
+      offerTags: offerSelected,
+      customTags: custom,
       score: candidature.scoreMatching ?? this.computeScore(tags, offreTags),
-      statut: this.normalizeCandidatureStatus(candidature.statut)
+      statut: this.normalizeCandidatureStatus(candidature.statut),
+      telephone: candidature.telephone,
+      cv: candidature.cv,
+      lettreMotivation: candidature.lettreMotivation,
+      poste: candidature.poste,
+      departement: candidature.departement,
+      matriculeEmploye: candidature.matriculeEmploye,
+      employeId: candidature.employeId,
+      titreOffre: candidature.titreOffre,
+      offreId: candidature.offreId
     };
   }
 

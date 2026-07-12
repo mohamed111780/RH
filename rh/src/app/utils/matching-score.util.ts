@@ -22,6 +22,32 @@ export function computeMatchingScore(candidateTags: string[], offerTags: string[
   return Math.round((matches * 100) / offerTags.length);
 }
 
+export function splitCandidateTags(
+  candidateTags: string[],
+  offerTags: string[]
+): { offerSelected: string[]; custom: string[] } {
+  const normalizedOfferTags = new Set(
+    (offerTags || []).map(normalizeSkill).filter(Boolean)
+  );
+
+  const offerSelected: string[] = [];
+  const custom: string[] = [];
+
+  for (const tag of candidateTags || []) {
+    const trimmed = tag.trim();
+    if (!trimmed) {
+      continue;
+    }
+    if (normalizedOfferTags.has(normalizeSkill(trimmed))) {
+      offerSelected.push(trimmed);
+    } else {
+      custom.push(trimmed);
+    }
+  }
+
+  return { offerSelected, custom };
+}
+
 export function inferProfileSkills(profileText: string, offerTags: string[]): string[] {
   if (!profileText.trim() || !offerTags.length) {
     return [];

@@ -318,11 +318,26 @@
         </div>
 
         <div class="kanban-offre-header">
-          <div>
+          <div class="kanban-offre-main">
+            <span class="kanban-eyebrow">Offre sélectionnée</span>
             <h3>{{ kanbanTitle }}</h3>
-            <p>{{ kanbanMeta }}</p>
+            <p class="kanban-offre-desc">{{ kanbanOffre?.description }}</p>
+            <div class="kanban-offre-meta">
+              <span><i class="fas fa-building"></i> {{ kanbanOffre?.dept }}</span>
+              <span><i class="fas fa-layer-group"></i> {{ kanbanOffre?.niveauLabel }}</span>
+              <span><i class="fas fa-file-contract"></i> {{ kanbanOffre?.contrat }}</span>
+              <span><i class="fas fa-circle"></i> {{ offreStatusLabel(kanbanOffre?.statut || 'OUVERTE') }}</span>
+              <span><i class="fas fa-calendar"></i> {{ kanbanMeta }}</span>
+            </div>
+            <div class="kanban-offre-tags" *ngIf="kanbanOffre?.tags?.length">
+              <span class="offre-tag" *ngFor="let tag of kanbanOffre?.tags">{{ tag }}</span>
+            </div>
           </div>
-          <div style="display:flex;align-items:center;gap:12px;">
+          <div class="kanban-offre-side">
+            <div class="kanban-summary">
+              <strong>{{ kanbanOffre?.candidatures || 0 }}</strong>
+              <span>Candidatures</span>
+            </div>
             <div class="kanban-ai-info">
               <i class="fas fa-robot"></i>
               <span>Tri IA activé — Score de matching par compétences</span>
@@ -337,7 +352,7 @@
 
         <div class="kanban-board" *ngIf="kanbanData && !loadingKanban">
           <!-- À Trier -->
-          <div class="kanban-col" (dragover)="allowDrop($event)" (drop)="onDrop($event, 'EN_ATTENTE')">
+          <div class="kanban-col kanban-col-trier" (dragover)="allowDrop($event)" (drop)="onDrop($event, 'EN_ATTENTE')">
             <div class="kanban-col-header">
               <div class="kanban-col-title">
                 <div class="col-dot amber"></div>
@@ -346,6 +361,7 @@
               </div>
               <span class="col-count amber">{{ kanbanData.trier.length }}</span>
             </div>
+            <p class="kanban-col-hint">Nouvelles candidatures à qualifier.</p>
             <div class="candidature-card" *ngFor="let c of kanbanData.trier" draggable="true" (dragstart)="onDragStart(c)" (dragend)="onDragEnd()">
               <div class="cand-header">
                 <div class="cand-avatar" [style.background]="c.color" [style.color]="c.tc">{{ c.initials }}</div>
@@ -358,15 +374,27 @@
                 </div>
                 <div class="score-bar"><div class="score-fill" [class]="scoreClass(c.score)" [style.width]="c.score + '%'"></div></div>
               </div>
-              <div class="cand-tags">
-                <span class="cand-tag" *ngFor="let t of c.tags" [class]="tagClass(t, kanbanData.offreTags)">{{ t }}</span>
+              <div class="cand-tags-section" *ngIf="c.offerTags.length">
+                <span class="cand-tags-label">Compétences offre</span>
+                <div class="cand-tags">
+                  <span class="cand-tag" *ngFor="let t of c.offerTags" [class]="tagClass(t, kanbanData.offreTags)">{{ t }}</span>
+                </div>
+              </div>
+              <div class="cand-tags-section custom" *ngIf="c.customTags.length">
+                <span class="cand-tags-label">Tags supplémentaires</span>
+                <div class="cand-tags">
+                  <span class="cand-tag custom" *ngFor="let t of c.customTags">{{ t }}</span>
+                </div>
               </div>
               <div class="cand-action-row">
-                <button class="cand-action-btn" style="color:var(--accent2);" (click)="showToast('Entretien planifié pour ' + c.name)">
-                  <i class="fas fa-calendar-plus"></i> Entretien
+                <button class="cand-action-btn details" type="button" (click)="openCandidatureDetails(c)">
+                  <i class="fas fa-eye"></i> Détails
                 </button>
-                <button class="cand-action-btn reject" style="color:var(--accent5);" (click)="showToast(c.name + ' rejeté')">
-                  <i class="fas fa-times"></i>
+                <button class="cand-action-btn promote" type="button" [disabled]="updatingCandidatureId === c.id" (click)="updateCandidatureStatus(c, 'ACCEPTEE')">
+                  <i class="fas fa-calendar-plus"></i> {{ updatingCandidatureId === c.id ? '...' : 'Entretien' }}
+                </button>
+                <button class="cand-action-btn reject" type="button" [disabled]="updatingCandidatureId === c.id" (click)="updateCandidatureStatus(c, 'REFUSEE')" title="Rejeter">
+                  <i class="fas fa-times"></i> Rejeter
                 </button>
               </div>
               <div class="cand-date"><i class="fas fa-envelope" style="margin-right:4px;"></i>{{ c.email }}</div>
@@ -374,7 +402,7 @@
           </div>
 
           <!-- Entretien -->
-          <div class="kanban-col" (dragover)="allowDrop($event)" (drop)="onDrop($event, 'ACCEPTEE')">
+          <div class="kanban-col kanban-col-entretien" (dragover)="allowDrop($event)" (drop)="onDrop($event, 'ACCEPTEE')">
             <div class="kanban-col-header">
               <div class="kanban-col-title">
                 <div class="col-dot purple"></div>
@@ -383,6 +411,7 @@
               </div>
               <span class="col-count purple">{{ kanbanData.entretien.length }}</span>
             </div>
+            <p class="kanban-col-hint">Profils retenus pour échange.</p>
             <div class="candidature-card" *ngFor="let c of kanbanData.entretien" draggable="true" (dragstart)="onDragStart(c)" (dragend)="onDragEnd()">
               <div class="cand-header">
                 <div class="cand-avatar" [style.background]="c.color" [style.color]="c.tc">{{ c.initials }}</div>
@@ -395,11 +424,23 @@
                 </div>
                 <div class="score-bar"><div class="score-fill" [class]="scoreClass(c.score)" [style.width]="c.score + '%'"></div></div>
               </div>
-              <div class="cand-tags">
-                <span class="cand-tag" *ngFor="let t of c.tags" [class]="tagClass(t, kanbanData.offreTags)">{{ t }}</span>
+              <div class="cand-tags-section" *ngIf="c.offerTags.length">
+                <span class="cand-tags-label">Compétences offre</span>
+                <div class="cand-tags">
+                  <span class="cand-tag" *ngFor="let t of c.offerTags" [class]="tagClass(t, kanbanData.offreTags)">{{ t }}</span>
+                </div>
+              </div>
+              <div class="cand-tags-section custom" *ngIf="c.customTags.length">
+                <span class="cand-tags-label">Tags supplémentaires</span>
+                <div class="cand-tags">
+                  <span class="cand-tag custom" *ngFor="let t of c.customTags">{{ t }}</span>
+                </div>
               </div>
               <div class="cand-action-row">
-                <button class="cand-action-btn" style="color:var(--accent3);" (click)="showToast('Offre envoyée à ' + c.name + ' 🎉')">
+                <button class="cand-action-btn details" type="button" (click)="openCandidatureDetails(c)">
+                  <i class="fas fa-eye"></i> Détails
+                </button>
+                <button class="cand-action-btn send" type="button" (click)="sendOfferToCandidate(c)">
                   <i class="fas fa-paper-plane"></i> Envoyer offre
                 </button>
               </div>
@@ -408,7 +449,7 @@
           </div>
 
           <!-- Rejetée -->
-          <div class="kanban-col" (dragover)="allowDrop($event)" (drop)="onDrop($event, 'REFUSEE')">
+          <div class="kanban-col kanban-col-rejetee" (dragover)="allowDrop($event)" (drop)="onDrop($event, 'REFUSEE')">
             <div class="kanban-col-header">
               <div class="kanban-col-title">
                 <div class="col-dot red"></div>
@@ -417,6 +458,7 @@
               </div>
               <span class="col-count red">{{ kanbanData.rejetee.length }}</span>
             </div>
+            <p class="kanban-col-hint">Candidatures refusées.</p>
             <div class="candidature-card" *ngFor="let c of kanbanData.rejetee" draggable="true" (dragstart)="onDragStart(c)" (dragend)="onDragEnd()">
               <div class="cand-header">
                 <div class="cand-avatar" [style.background]="c.color" [style.color]="c.tc">{{ c.initials }}</div>
@@ -429,8 +471,22 @@
                 </div>
                 <div class="score-bar"><div class="score-fill" [class]="scoreClass(c.score)" [style.width]="c.score + '%'"></div></div>
               </div>
-              <div class="cand-tags">
-                <span class="cand-tag" *ngFor="let t of c.tags" [class]="tagClass(t, kanbanData.offreTags)">{{ t }}</span>
+              <div class="cand-tags-section" *ngIf="c.offerTags.length">
+                <span class="cand-tags-label">Compétences offre</span>
+                <div class="cand-tags">
+                  <span class="cand-tag" *ngFor="let t of c.offerTags" [class]="tagClass(t, kanbanData.offreTags)">{{ t }}</span>
+                </div>
+              </div>
+              <div class="cand-tags-section custom" *ngIf="c.customTags.length">
+                <span class="cand-tags-label">Tags supplémentaires</span>
+                <div class="cand-tags">
+                  <span class="cand-tag custom" *ngFor="let t of c.customTags">{{ t }}</span>
+                </div>
+              </div>
+              <div class="cand-action-row">
+                <button class="cand-action-btn details" type="button" (click)="openCandidatureDetails(c)">
+                  <i class="fas fa-eye"></i> Détails
+                </button>
               </div>
               <div class="cand-date"><i class="fas fa-envelope" style="margin-right:4px;"></i>{{ c.email }}</div>
             </div>
@@ -441,7 +497,12 @@
 
     <!-- ══════════ MON ESPACE COLLABORATEUR ══════════ -->
     <div class="page" *ngIf="currentPage === 'mon-espace'">
-      <app-mon-espace-collaborateur [theme]="'admin'"></app-mon-espace-collaborateur>
+      <app-mon-espace-collaborateur
+        [theme]="'admin'"
+        layout="stacked"
+        eyebrow="Admin RH"
+        subtitle="Demandes de congés, formations et mobilité interne dans une seule vue claire et élégante.">
+      </app-mon-espace-collaborateur>
     </div>
 
     <!-- ══════════ ANALYTICS PAGE ══════════ -->
@@ -760,6 +821,64 @@
 </div>
 
 <!-- ══════════ TOAST ══════════ -->
+<div class="modal-overlay" [class.open]="candidatureDetailModalOpen" (click)="$event.target === $event.currentTarget && closeCandidatureDetails()">
+  <div class="modal candidature-detail-modal" *ngIf="selectedCandidature as c">
+    <div class="candidature-detail-header">
+      <div class="cand-avatar large" [style.background]="c.color" [style.color]="c.tc">{{ c.initials }}</div>
+      <div>
+        <h2>{{ c.name }}</h2>
+        <p>{{ c.titreOffre || kanbanTitle || 'Offre non renseignée' }}</p>
+        <span class="status-pill" [ngClass]="c.statut === 'ACCEPTEE' ? 'active' : c.statut === 'REFUSEE' ? 'absent' : 'pending'">
+          {{ candidatureStatutLabel(c.statut) }}
+        </span>
+      </div>
+      <div class="candidature-detail-score">
+        <strong [style.color]="scoreColor(c.score)">{{ c.score }}%</strong>
+        <span>Score IA</span>
+      </div>
+    </div>
+
+    <div class="candidature-detail-grid">
+      <div class="detail-item"><span>Email</span><strong>{{ c.email || '-' }}</strong></div>
+      <div class="detail-item"><span>Téléphone</span><strong>{{ c.telephone || '-' }}</strong></div>
+      <div class="detail-item"><span>Poste visé</span><strong>{{ c.poste || '-' }}</strong></div>
+      <div class="detail-item"><span>Département</span><strong>{{ c.departement || '-' }}</strong></div>
+      <div class="detail-item" *ngIf="c.employeId"><span>Matricule employé</span><strong>{{ c.matriculeEmploye || '-' }}</strong></div>
+      <div class="detail-item" *ngIf="c.employeId"><span>Candidature interne</span><strong>Oui (ID {{ c.employeId }})</strong></div>
+      <div class="detail-item full">
+        <span>CV / Portfolio</span>
+        <strong *ngIf="c.cv && (c.cv.startsWith('http://') || c.cv.startsWith('https://'))">
+          <a [href]="c.cv" target="_blank" rel="noopener noreferrer">{{ c.cv }}</a>
+        </strong>
+        <strong *ngIf="!c.cv">-</strong>
+        <strong *ngIf="c.cv && !c.cv.startsWith('http://') && !c.cv.startsWith('https://')">{{ c.cv }}</strong>
+      </div>
+      <div class="detail-item full">
+        <span>Lettre de motivation / Message</span>
+        <p class="detail-text">{{ c.lettreMotivation || 'Aucun message fourni.' }}</p>
+      </div>
+    </div>
+
+    <div class="candidature-detail-tags" *ngIf="c.offerTags.length">
+      <h3>Compétences liées à l'offre</h3>
+      <div class="cand-tags">
+        <span class="cand-tag" *ngFor="let t of c.offerTags" [class]="tagClass(t, kanbanData?.offreTags || [])">{{ t }}</span>
+      </div>
+    </div>
+
+    <div class="candidature-detail-tags custom" *ngIf="c.customTags.length">
+      <h3>Tags supplémentaires du candidat</h3>
+      <div class="cand-tags">
+        <span class="cand-tag custom" *ngFor="let t of c.customTags">{{ t }}</span>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" type="button" (click)="closeCandidatureDetails()">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" *ngIf="toastVisible">
   <i class="fas fa-check-circle"></i>
   <span>{{ toastMessage }}</span>

@@ -1,11 +1,11 @@
-<div class="mon-espace">
-  <div class="mon-espace-header">
-    <div>
-      <span class="eyebrow">Espace collaborateur</span>
+<div class="section section-mon-espace">
+  <div class="section-intro">
+    <div class="section-title-group">
+      <span class="eyebrow">{{ displayEyebrow }}</span>
       <h2>Mes Demandes & Mobilité</h2>
-      <p>Congés, formations et offres internes — tout au même endroit.</p>
+      <p>{{ displaySubtitle }}</p>
     </div>
-    <div class="header-stats">
+    <div class="section-metrics">
       <div class="stat-chip">
         <i class="fas fa-umbrella-beach"></i>
         <span><strong>{{ soldeRestant }}</strong> j restants</span>
@@ -14,10 +14,29 @@
         <i class="fas fa-hourglass-half"></i>
         <span><strong>{{ pendingConges }}</strong> en attente</span>
       </div>
+      <div class="stat-chip purple" *ngIf="layout === 'stacked'">
+        <i class="fas fa-graduation-cap"></i>
+        <span><strong>{{ mesFormationsActives.length }}</strong> demandes formation</span>
+      </div>
+      <div class="stat-chip cyan" *ngIf="layout === 'stacked'">
+        <i class="fas fa-briefcase"></i>
+        <span><strong>{{ offresInternes.length }}</strong> offres internes</span>
+      </div>
+    </div>
+    <div class="section-actions">
+      <button type="button" class="btn-primary" (click)="openCongeModal()">
+        <i class="fas fa-plus"></i> Congé
+      </button>
+      <button type="button" class="btn-ghost" (click)="goToSection('formations')">
+        <i class="fas fa-graduation-cap"></i> Formation
+      </button>
+      <button type="button" class="btn-ghost" (click)="goToSection('offres')">
+        <i class="fas fa-briefcase"></i> Mobilité
+      </button>
     </div>
   </div>
 
-  <div class="tabs">
+  <div class="section-tabs" *ngIf="layout === 'tabs'">
     <button type="button" class="tab" [class.active]="activeTab === 'conges'" (click)="showTab('conges')">
       <i class="fas fa-umbrella-beach"></i> Mes Congés
       <span class="tab-badge" *ngIf="pendingConges > 0">{{ pendingConges }}</span>
@@ -32,8 +51,11 @@
     </button>
   </div>
 
-  <!-- CONGÉS -->
-  <section class="tab-panel" *ngIf="activeTab === 'conges'">
+  <div class="section-divider" *ngIf="layout === 'tabs'"></div>
+
+  <div class="section-content" [class.stacked]="layout === 'stacked'">
+    <!-- CONGÉS -->
+    <section id="mon-espace-conges" class="tab-panel section-panel" *ngIf="isSectionVisible('conges')">
     <div class="panel-toolbar">
       <h3><i class="fas fa-umbrella-beach"></i> Mes demandes de congé</h3>
       <button type="button" class="btn-primary" (click)="openCongeModal()">
@@ -48,11 +70,14 @@
       <div class="stat-card purple"><div class="stat-value">{{ demandesConge.length }}</div><div class="stat-label">Total demandes</div></div>
     </div>
 
-    <div class="card">
+    <div class="conges-list">
       <div class="loading-state" *ngIf="loadingDemandesConge">Chargement...</div>
       <div class="empty-state" *ngIf="!loadingDemandesConge && demandesConge.length === 0">
         <i class="fas fa-inbox"></i>
         <p>Aucune demande de congé pour le moment</p>
+        <button type="button" class="btn-primary" (click)="openCongeModal()">
+          <i class="fas fa-plus"></i> Créer une demande
+        </button>
       </div>
       <div class="conge-row" *ngFor="let c of demandesConge">
         <div class="conge-icon" [class]="congeStatusClass(c.statutDemande)">
@@ -76,11 +101,15 @@
     </div>
   </section>
 
+  <div class="section-divider elegant" *ngIf="layout === 'stacked'"></div>
+
   <!-- FORMATIONS -->
-  <section class="tab-panel" *ngIf="activeTab === 'formations'">
+  <section id="mon-espace-formations" class="tab-panel section-panel" *ngIf="isSectionVisible('formations')">
     <div class="panel-toolbar">
       <h3><i class="fas fa-graduation-cap"></i> Formations</h3>
     </div>
+
+    <div class="section-divider"></div>
 
     <div class="sub-tabs">
       <button type="button" class="sub-tab" [class.active]="activeFormationTab === 'catalogue'" (click)="activeFormationTab = 'catalogue'">
@@ -127,6 +156,7 @@
           </div>
           <h4>{{ f.title }}</h4>
           <p *ngIf="f.justification"><strong>Justification :</strong> {{ f.justification }}</p>
+          <p *ngIf="!f.justification" class="muted">Aucune justification renseignée.</p>
           <div class="formation-request-actions" *ngIf="f.status === 'pending'">
             <button type="button" class="btn-sm outline" (click)="openEditDemandeFormationModal($event, f)">
               <i class="fas fa-pen"></i> Modifier
@@ -140,12 +170,16 @@
     </div>
   </section>
 
+  <div class="section-divider elegant" *ngIf="layout === 'stacked'"></div>
+
   <!-- OFFRES INTERNES -->
-  <section class="tab-panel" *ngIf="activeTab === 'offres'">
+  <section id="mon-espace-offres" class="tab-panel section-panel" *ngIf="isSectionVisible('offres')">
     <div class="panel-toolbar">
       <h3><i class="fas fa-briefcase"></i> Offres internes</h3>
       <span class="hint"><i class="fas fa-info-circle"></i> Mobilité interne — postulez aux opportunités ouvertes</span>
     </div>
+
+    <div class="section-divider"></div>
 
     <div class="loading-state" *ngIf="loadingOffresInternes">Chargement des offres...</div>
 
@@ -155,7 +189,7 @@
     </div>
 
     <div class="offres-grid">
-      <div class="offre-card" [class]="o.type" *ngFor="let o of offresInternes" (click)="showOffreModal = o">
+      <div class="offre-card" [class]="o.type" *ngFor="let o of offresInternes">
         <div class="offre-bar" [style.background]="offreTypeColor(o.type)"></div>
         <div class="offre-top">
           <span class="offre-niveau" [class]="o.niveau">{{ o.niveauLabel }}</span>
@@ -167,22 +201,26 @@
           <span class="offre-tag" *ngFor="let t of o.tags">{{ t }}</span>
         </div>
         <div class="offre-footer">
-          <span class="postule-badge" *ngIf="o.postule"><i class="fas fa-check"></i> Candidature envoyée</span>
-          <button *ngIf="!o.postule" type="button" class="btn-sm primary" (click)="openOffreModal($event, o)">
+          <button type="button" class="btn-sm outline" (click)="openOffreModal($event, o)">
+            <i class="fas fa-eye"></i> Voir
+          </button>
+          <button type="button" class="btn-sm primary" *ngIf="!o.postule" (click)="openOffreModal($event, o)">
             <i class="fas fa-paper-plane"></i> Postuler
           </button>
+          <span class="postule-badge" *ngIf="o.postule"><i class="fas fa-check"></i> Candidature envoyée</span>
         </div>
       </div>
     </div>
   </section>
+  </div>
 </div>
 
 <!-- Toast -->
 <div class="toast" [class.visible]="toastVisible">{{ toastMessage }}</div>
 
 <!-- Modal congé -->
-<div class="modal-overlay" *ngIf="showCongeModal" (click)="closeCongeModal()">
-  <div class="modal" (click)="$event.stopPropagation()">
+<div class="modal-overlay collab-modal-overlay open" *ngIf="showCongeModal" (click)="closeCongeModal()">
+  <div class="modal collab-modal" (click)="$event.stopPropagation()">
     <h3>{{ editingConge ? 'Modifier la demande' : 'Nouvelle demande de congé' }}</h3>
     <div class="form-group">
       <label>Type de congé</label>
@@ -211,8 +249,8 @@
 </div>
 
 <!-- Modal annulation congé -->
-<div class="modal-overlay" *ngIf="showCancelDemandeModal" (click)="closeCancelDemandeModal()">
-  <div class="modal modal-sm" (click)="$event.stopPropagation()">
+<div class="modal-overlay collab-modal-overlay open" *ngIf="showCancelDemandeModal" (click)="closeCancelDemandeModal()">
+  <div class="modal collab-modal modal-sm" (click)="$event.stopPropagation()">
     <h3>Annuler la demande ?</h3>
     <p>Cette action est irréversible.</p>
     <div class="modal-actions">
@@ -225,8 +263,8 @@
 </div>
 
 <!-- Modal demande formation -->
-<div class="modal-overlay" *ngIf="showDemandeFormationModal" (click)="closeDemandeFormationModal()">
-  <div class="modal" (click)="$event.stopPropagation()">
+<div class="modal-overlay collab-modal-overlay open" *ngIf="showDemandeFormationModal" (click)="closeDemandeFormationModal()">
+  <div class="modal collab-modal" (click)="$event.stopPropagation()">
     <h3>Demande d'inscription — {{ selectedFormationForRequest?.title }}</h3>
     <div class="form-group">
       <label>Justification</label>
@@ -243,8 +281,8 @@
 </div>
 
 <!-- Modal edit formation -->
-<div class="modal-overlay" *ngIf="showEditDemandeFormationModal" (click)="closeEditDemandeFormationModal()">
-  <div class="modal" (click)="$event.stopPropagation()">
+<div class="modal-overlay collab-modal-overlay open" *ngIf="showEditDemandeFormationModal" (click)="closeEditDemandeFormationModal()">
+  <div class="modal collab-modal" (click)="$event.stopPropagation()">
     <h3>Modifier la justification</h3>
     <div class="form-group">
       <textarea rows="4" [(ngModel)]="editDemandeFormationForm.justification"></textarea>
@@ -260,8 +298,8 @@
 </div>
 
 <!-- Modal cancel formation -->
-<div class="modal-overlay" *ngIf="showCancelDemandeFormationModal" (click)="closeCancelDemandeFormationModal()">
-  <div class="modal modal-sm" (click)="$event.stopPropagation()">
+<div class="modal-overlay collab-modal-overlay open" *ngIf="showCancelDemandeFormationModal" (click)="closeCancelDemandeFormationModal()">
+  <div class="modal collab-modal modal-sm" (click)="$event.stopPropagation()">
     <h3>Annuler la demande de formation ?</h3>
     <div class="modal-actions">
       <button type="button" class="btn-danger" [disabled]="cancelingFormationRequest" (click)="confirmCancelDemandeFormation()">
@@ -273,8 +311,8 @@
 </div>
 
 <!-- Modal offre -->
-<div class="modal-overlay" *ngIf="showOffreModal" (click)="showOffreModal = null">
-  <div class="modal modal-lg" (click)="$event.stopPropagation()">
+<div class="modal-overlay collab-modal-overlay open" *ngIf="showOffreModal" (click)="showOffreModal = null">
+  <div class="modal collab-modal modal-lg" (click)="$event.stopPropagation()">
     <h3>{{ showOffreModal.title }}</h3>
     <div class="offre-modal-meta">
       <span><i class="fas fa-building"></i> {{ showOffreModal.dept }}</span>

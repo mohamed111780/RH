@@ -57,6 +57,8 @@ export interface Formation {
   justification?: string;
 }
 
+export type MonEspaceLayout = 'tabs' | 'stacked';
+
 @Component({
   selector: 'app-mon-espace-collaborateur',
   standalone: true,
@@ -65,7 +67,10 @@ export interface Formation {
   styleUrls: ['./mon-espace-collaborateur.component.css']
 })
 export class MonEspaceCollaborateurComponent implements OnInit {
-  @Input() theme: 'rh' | 'admin' = 'rh';
+  @Input() theme: 'rh' | 'admin' | 'employe' = 'employe';
+  @Input() layout: MonEspaceLayout = 'tabs';
+  @Input() eyebrow = '';
+  @Input() subtitle = '';
   @HostBinding('attr.data-theme') get dataTheme(): string { return this.theme; }
 
   activeTab: 'conges' | 'formations' | 'offres' = 'conges';
@@ -158,9 +163,38 @@ export class MonEspaceCollaborateurComponent implements OnInit {
     return this.formations.filter(f => f.status === 'available');
   }
 
+  get displayEyebrow(): string {
+    if (this.eyebrow) return this.eyebrow;
+    if (this.theme === 'rh') return 'Espace RH';
+    if (this.theme === 'admin') return 'Admin RH';
+    return 'Espace collaborateur';
+  }
+
+  get displaySubtitle(): string {
+    if (this.subtitle) return this.subtitle;
+    return 'Congés, formations et offres internes — tout au même endroit.';
+  }
+
+  isSectionVisible(section: 'conges' | 'formations' | 'offres'): boolean {
+    return this.layout === 'stacked' || this.activeTab === section;
+  }
+
   showTab(tab: 'conges' | 'formations' | 'offres'): void {
     this.activeTab = tab;
     this.cdr.markForCheck();
+  }
+
+  goToSection(section: 'conges' | 'formations' | 'offres'): void {
+    this.showTab(section);
+    if (section === 'formations') {
+      this.activeFormationTab = 'catalogue';
+    }
+
+    window.setTimeout(() => {
+      document
+        .getElementById(`mon-espace-${section}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }
 
   private getCurrentUserId(): number {
@@ -228,11 +262,14 @@ export class MonEspaceCollaborateurComponent implements OnInit {
       dateFin: this.toDateInputValue(conge.fin)
     };
     this.showCongeModal = true;
+    this.cdr.detectChanges();
   }
 
   closeCongeModal(): void {
     this.showCongeModal = false;
     this.editingConge = null;
+    this.submittingConge = false;
+    this.cdr.detectChanges();
   }
 
   submitConge(): void {
@@ -255,11 +292,14 @@ export class MonEspaceCollaborateurComponent implements OnInit {
   openCancelDemandeModal(id: number): void {
     this.cancelingDemandeId = id;
     this.showCancelDemandeModal = true;
+    this.cdr.detectChanges();
   }
 
   closeCancelDemandeModal(): void {
     this.showCancelDemandeModal = false;
     this.cancelingDemandeId = null;
+    this.cancelingDemande = false;
+    this.cdr.detectChanges();
   }
 
   confirmCancelDemande(): void {
@@ -286,6 +326,7 @@ export class MonEspaceCollaborateurComponent implements OnInit {
     event.stopPropagation();
     this.showOffreModal = offre;
     this.resetCandidatureSkills(offre);
+    this.cdr.detectChanges();
   }
 
   toggleCandidatureSkill(skill: string): void {
@@ -372,6 +413,7 @@ export class MonEspaceCollaborateurComponent implements OnInit {
     this.formationRequestError = '';
     this.showFormationModal = null;
     this.showDemandeFormationModal = true;
+    this.cdr.detectChanges();
   }
 
   closeDemandeFormationModal(): void {
@@ -379,6 +421,8 @@ export class MonEspaceCollaborateurComponent implements OnInit {
     this.selectedFormationForRequest = null;
     this.demandeFormationForm = { justification: '' };
     this.formationRequestError = '';
+    this.submittingFormationRequest = false;
+    this.cdr.detectChanges();
   }
 
   submitDemandeFormation(): void {
@@ -415,17 +459,23 @@ export class MonEspaceCollaborateurComponent implements OnInit {
   openEditDemandeFormationModal(event: Event, formation: Formation): void {
     event.preventDefault();
     event.stopPropagation();
-    if (formation.status !== 'pending' || !formation.demandeId) return;
+    if (formation.status !== 'pending' || !formation.demandeId) {
+      this.showToast('Seules les demandes en attente peuvent être modifiées');
+      return;
+    }
     this.selectedFormationRequest = formation;
     this.editDemandeFormationForm = { justification: formation.justification || '' };
     this.editFormationRequestError = '';
     this.showEditDemandeFormationModal = true;
+    this.cdr.detectChanges();
   }
 
   closeEditDemandeFormationModal(): void {
     this.showEditDemandeFormationModal = false;
     this.selectedFormationRequest = null;
     this.editDemandeFormationForm = { justification: '' };
+    this.updatingFormationRequest = false;
+    this.cdr.detectChanges();
   }
 
   updateDemandeFormation(): void {
@@ -458,14 +508,20 @@ export class MonEspaceCollaborateurComponent implements OnInit {
   openCancelDemandeFormationModal(event: Event, formation: Formation): void {
     event.preventDefault();
     event.stopPropagation();
-    if (!formation.demandeId) return;
+    if (formation.status !== 'pending' || !formation.demandeId) {
+      this.showToast('Seules les demandes en attente peuvent être annulées');
+      return;
+    }
     this.selectedFormationRequest = formation;
     this.showCancelDemandeFormationModal = true;
+    this.cdr.detectChanges();
   }
 
   closeCancelDemandeFormationModal(): void {
     this.showCancelDemandeFormationModal = false;
     this.selectedFormationRequest = null;
+    this.cancelingFormationRequest = false;
+    this.cdr.detectChanges();
   }
 
   confirmCancelDemandeFormation(): void {
@@ -491,7 +547,11 @@ export class MonEspaceCollaborateurComponent implements OnInit {
     if (this.toastTimer) clearTimeout(this.toastTimer);
     this.toastMessage = msg;
     this.toastVisible = true;
-    this.toastTimer = setTimeout(() => (this.toastVisible = false), 3200);
+    this.cdr.detectChanges();
+    this.toastTimer = setTimeout(() => {
+      this.toastVisible = false;
+      this.cdr.detectChanges();
+    }, 3200);
   }
 
   statusLabel(s: StatutDemande): string {

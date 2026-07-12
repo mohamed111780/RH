@@ -12,9 +12,9 @@ public class DemandeCongeDTO {
     private long id;
     private LocalDate debut;
     private LocalDate fin;
-    private String TypeConge;
-    private String StatutDemande;
-    private String MatriculeEmploye;
+    private String typeConge;
+    private String statutDemande;
+    private String matriculeEmploye;
     private String nomEmploye;
     private String prenomEmploye;
 

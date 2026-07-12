@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { Candidature } from '../models/candidature';
 
 @Injectable({
@@ -12,7 +13,11 @@ export class CandidatureService {
   constructor(private http: HttpClient) {}
 
   postuler(offreId: number, candidature: Candidature): Observable<void> {
-    return this.http.post<void>(`${this.apiUrl}/${offreId}`, candidature);
+    return this.http.post(
+      `${this.apiUrl}/${offreId}`,
+      candidature,
+      { responseType: 'text' }
+    ).pipe(map(() => void 0));
   }
 
   getAll(): Observable<Candidature[]> {

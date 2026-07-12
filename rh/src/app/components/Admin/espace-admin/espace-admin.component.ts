@@ -15,7 +15,7 @@ import { CandidatureService } from '../../../services/candidature.service';
 import { FormationService } from '../../../services/formation.service';
 import { EmployeService } from '../../../services/employe.service';
 import { MonEspaceCollaborateurComponent } from '../../shared/mon-espace-collaborateur/mon-espace-collaborateur.component';
-import { computeMatchingScore, normalizeSkill } from '../../../utils/matching-score.util';
+import { computeMatchingScore, normalizeSkill, splitCandidateTags } from '../../../utils/matching-score.util';
 
 interface Employee {
   initials: string;
@@ -40,6 +40,9 @@ interface Formation {
   enrolled: number;
   rating: string;
   progress: number;
+  status?: 'available' | 'pending' | 'enrolled';
+  demandeId?: number;
+  justification?: string;
   dateDebut?: string;
   dateFin?: string;
 }
@@ -58,6 +61,7 @@ interface Offre {
   contrat: string;
   offreType: OffreType;
   statut: OffreStatut;
+  postule?: boolean;
 }
 
 interface KanbanCandidature {
@@ -69,8 +73,19 @@ interface KanbanCandidature {
   tc: string;
   email: string;
   tags: string[];
+  offerTags: string[];
+  customTags: string[];
   score: number;
   statut: 'EN_ATTENTE' | 'ACCEPTEE' | 'REFUSEE';
+  telephone?: string;
+  cv?: string;
+  lettreMotivation?: string;
+  poste?: string;
+  departement?: string;
+  matriculeEmploye?: string;
+  employeId?: number;
+  titreOffre?: string;
+  offreId?: number;
 }
 
 interface CandidaturesData {
@@ -190,8 +205,12 @@ export class EspaceAdminComponent implements OnInit {
   // ── Kanban State ──────────────────────────────────────────────────────────────
   kanbanTitle: string = '';
   kanbanMeta: string = '';
+  kanbanOffre: Offre | null = null;
   kanbanData: CandidaturesData | null = null;
   kanbanOffreId: number | null = null;
+  updatingCandidatureId: number | null = null;
+  candidatureDetailModalOpen: boolean = false;
+  selectedCandidature: KanbanCandidature | null = null;
   private draggedCandidature: KanbanCandidature | null = null;
 
   // ── DATA ─────────────────────────────────────────────────────────────────────
@@ -467,6 +486,7 @@ export class EspaceAdminComponent implements OnInit {
   // ── Offres ────────────────────────────────────────────────────────────────────
   openKanban(offre: Offre): void {
     this.kanbanOffreId = offre.id;
+    this.kanbanOffre = offre;
     this.kanbanTitle = offre.title;
     this.kanbanMeta  = `${offre.dept} · ${offre.niveauLabel} · ${this.offreStatusLabel(offre.statut)} · Publié ${offre.date}`;
     this.showKanbanView = true;
@@ -530,6 +550,22 @@ export class EspaceAdminComponent implements OnInit {
     return isMatch ? 'match' : isPartial ? 'partial' : 'no-match';
   }
 
+  openCandidatureDetails(candidature: KanbanCandidature): void {
+    this.selectedCandidature = candidature;
+    this.candidatureDetailModalOpen = true;
+  }
+
+  closeCandidatureDetails(): void {
+    this.candidatureDetailModalOpen = false;
+    this.selectedCandidature = null;
+  }
+
+  candidatureStatutLabel(statut?: string): string {
+    if (statut === 'ACCEPTEE') return 'Entretien';
+    if (statut === 'REFUSEE') return 'Rejetée';
+    return 'À trier';
+  }
+
   onDragStart(candidature: KanbanCandidature): void {
     this.draggedCandidature = candidature;
   }
@@ -550,20 +586,42 @@ export class EspaceAdminComponent implements OnInit {
       return;
     }
 
-    this.candidatureService.changeStatut(this.draggedCandidature.id, targetStatus).subscribe({
+    this.updateCandidatureStatus(this.draggedCandidature, targetStatus);
+    this.draggedCandidature = null;
+  }
+
+  updateCandidatureStatus(candidature: KanbanCandidature, targetStatus: 'EN_ATTENTE' | 'ACCEPTEE' | 'REFUSEE'): void {
+    if (!candidature.id) {
+      this.showToast('Candidature introuvable');
+      return;
+    }
+    if (candidature.statut === targetStatus) {
+      this.showToast('La candidature est déjà dans cette colonne');
+      return;
+    }
+
+    this.updatingCandidatureId = candidature.id;
+    this.candidatureService.changeStatut(candidature.id, targetStatus).subscribe({
       next: () => {
         const currentOffre = this.offres.find((offre) => offre.id === this.kanbanOffreId);
         if (currentOffre) {
           this.openKanban(currentOffre);
         }
-        this.draggedCandidature = null;
-        this.showToast('Statut candidature mis a jour');
+        this.updatingCandidatureId = null;
+        this.showToast(`Candidature de ${candidature.name} déplacée vers ${this.candidatureStatutLabel(targetStatus)}`);
       },
       error: () => {
-        this.draggedCandidature = null;
+        this.updatingCandidatureId = null;
         this.showToast('Erreur lors de la mise a jour du statut');
       }
     });
+  }
+
+  sendOfferToCandidate(candidature: KanbanCandidature): void {
+    const subject = encodeURIComponent(`Suite de votre candidature - ${this.kanbanTitle || candidature.titreOffre || 'Offre interne'}`);
+    const body = encodeURIComponent(`Bonjour ${candidature.name},\n\nNous souhaitons donner suite à votre candidature pour ${this.kanbanTitle || candidature.titreOffre || 'cette offre'}.\n\nCordialement,`);
+    window.location.href = `mailto:${candidature.email}?subject=${subject}&body=${body}`;
+    this.showToast(`Email d'offre préparé pour ${candidature.name}`);
   }
 
   openFormationModal(): void {
@@ -840,6 +898,7 @@ export class EspaceAdminComponent implements OnInit {
 
   private mapBackendCandidatureToKanban(candidature: BackendCandidature, offreTags: string[]): KanbanCandidature {
     const tags = this.extractTagsFromCandidature(candidature);
+    const { offerSelected, custom } = splitCandidateTags(tags, offreTags);
     const palette = this.colorFromName(candidature.nomCandidat);
 
     return {
@@ -851,8 +910,19 @@ export class EspaceAdminComponent implements OnInit {
       tc: palette.text,
       email: candidature.email,
       tags,
+      offerTags: offerSelected,
+      customTags: custom,
       score: candidature.scoreMatching ?? this.computeScore(tags, offreTags),
-      statut: this.normalizeCandidatureStatus(candidature.statut)
+      statut: this.normalizeCandidatureStatus(candidature.statut),
+      telephone: candidature.telephone,
+      cv: candidature.cv,
+      lettreMotivation: candidature.lettreMotivation,
+      poste: candidature.poste,
+      departement: candidature.departement,
+      matriculeEmploye: candidature.matriculeEmploye,
+      employeId: candidature.employeId,
+      titreOffre: candidature.titreOffre,
+      offreId: candidature.offreId
     };
   }
 
