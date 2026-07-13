@@ -15,7 +15,16 @@ import { CandidatureService } from '../../../services/candidature.service';
 import { FormationService } from '../../../services/formation.service';
 import { EmployeService } from '../../../services/employe.service';
 import { MonEspaceCollaborateurComponent } from '../../shared/mon-espace-collaborateur/mon-espace-collaborateur.component';
+import { DemandesFormationPanelComponent } from '../../shared/demandes-formation-panel/demandes-formation-panel.component';
 import { computeMatchingScore, normalizeSkill, splitCandidateTags } from '../../../utils/matching-score.util';
+import {
+  computeAverageMatchingScore,
+  computeCandidatureStatusStats,
+  computeTopSkills,
+  SkillStat,
+  StatusStat
+} from '../../../utils/dashboard-stats.util';
+import { ActivityItem, buildActivityFeed } from '../../../utils/activity-feed.util';
 
 interface Employee {
   initials: string;
@@ -98,7 +107,7 @@ interface CandidaturesData {
 @Component({
   selector: 'app-espace-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule, MonEspaceCollaborateurComponent],
+  imports: [CommonModule, FormsModule, MonEspaceCollaborateurComponent, DemandesFormationPanelComponent],
   templateUrl: './espace-admin.component.html',
   styleUrls: ['./espace-admin.component.css']
 })
@@ -229,24 +238,25 @@ export class EspaceAdminComponent implements OnInit {
   formations: Formation[] = [];
 
   offres: Offre[] = [];
-  topSkills = [
-    { name: 'React.js',     count: 38, color: 'var(--accent)'  },
-    { name: 'Python',       count: 35, color: 'var(--accent3)' },
-    { name: 'TypeScript',   count: 31, color: 'var(--accent6)' },
-    { name: 'Docker',       count: 28, color: 'var(--accent4)' },
-    { name: 'AWS',          count: 24, color: 'var(--accent5)' },
-    { name: 'Node.js',      count: 22, color: 'var(--accent2)' },
+  activityFeed: ActivityItem[] = [];
+  allCandidatures: BackendCandidature[] = [];
+  allOffres: OffreEmploi[] = [];
+  topSkills: SkillStat[] = [];
+  candidatureStatusStats: StatusStat[] = [];
+  averageMatchingScore = 0;
+  private readonly skillColors = [
+    'var(--accent)',
+    'var(--accent3)',
+    'var(--accent6)',
+    'var(--accent4)',
+    'var(--accent5)',
+    'var(--accent2)'
   ];
-
-  deptStats = [
-    { label: 'Ingénierie', pct: 62, color: 'var(--accent)'  },
-    { label: 'Design',     pct: 18, color: 'var(--accent5)' },
-    { label: 'Marketing',  pct: 12, color: 'var(--accent4)' },
-    { label: 'Finance',    pct: 8,  color: 'var(--accent6)' },
-  ];
-
-  recruitmentBars = [40, 55, 70, 85, 100, 65, 35];
-  recruitmentDays = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+  private readonly candidatureStatusColors: Record<StatusStat['key'], string> = {
+    EN_ATTENTE: 'var(--accent4)',
+    ACCEPTEE: 'var(--accent3)',
+    REFUSEE: 'var(--accent5)'
+  };
 
   // ── Lifecycle ────────────────────────────────────────────────────────────────
   ngOnInit(): void {
@@ -405,6 +415,7 @@ export class EspaceAdminComponent implements OnInit {
         this.employees = employees
           .map((employee) => this.mapEmployeToDashboard(employee))
           .sort((a, b) => this.compareDatesDesc(a.joinDate, b.joinDate));
+        this.refreshActivityFeed();
         this.loadingEmployees = false;
       },
       error: () => {
@@ -456,6 +467,7 @@ export class EspaceAdminComponent implements OnInit {
     this.formationService.getAllFormations().subscribe({
       next: (formations) => {
         this.formations = formations.map((formation) => this.mapFormationToUi(formation));
+        this.refreshActivityFeed();
         this.loadingFormations = false;
       },
       error: () => {
@@ -518,7 +530,11 @@ export class EspaceAdminComponent implements OnInit {
           return acc;
         }, {} as Record<number, number>);
 
+        this.allOffres = offres;
+        this.allCandidatures = candidatures;
         this.offres = offres.map((offre) => this.mapApiOffreToUi(offre, counts[offre.id ?? 0] ?? 0));
+        this.refreshDashboardStats(offres, candidatures);
+        this.refreshActivityFeed();
         this.loadingOffres = false;
       },
       error: () => {
@@ -979,6 +995,36 @@ export class EspaceAdminComponent implements OnInit {
     if (normalized.includes('junior')) return 'junior';
     if (normalized.includes('mid')) return 'mid';
     return 'senior';
+  }
+
+  private refreshDashboardStats(offres: OffreEmploi[], candidatures: BackendCandidature[]): void {
+    this.topSkills = computeTopSkills(offres, this.skillColors);
+    this.candidatureStatusStats = computeCandidatureStatusStats(candidatures, this.candidatureStatusColors);
+    this.averageMatchingScore = computeAverageMatchingScore(candidatures);
+  }
+
+  private refreshActivityFeed(): void {
+    this.activityFeed = buildActivityFeed({
+      offres: this.allOffres.map((offre) => ({
+        titre: offre.titre,
+        statut: offre.statut,
+        datePublication: offre.datePublication
+      })),
+      candidatures: this.allCandidatures,
+      employees: this.employees.map((employee) => {
+        const [prenom, ...rest] = employee.name.split(' ');
+        return {
+          prenom,
+          nom: rest.join(' '),
+          departement: employee.dept,
+          dateEmbauche: employee.joinDate
+        };
+      }),
+      formations: this.formations.map((formation) => ({
+        titre: formation.title,
+        dateDebut: formation.dateDebut
+      }))
+    });
   }
 
   private formatRelativeDate(datePublication?: string): string {

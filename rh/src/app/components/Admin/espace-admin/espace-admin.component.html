@@ -124,89 +124,93 @@
         </div>
       </div>
 
-      <!-- Charts row -->
-      <div class="grid-3-1">
+      <div class="grid-3 dashboard-insights">
         <div class="card">
           <div class="card-header">
-            <div class="card-title"><i class="fas fa-chart-line"></i> Activité recrutement — 7 derniers jours</div>
+            <div class="card-title"><i class="fas fa-tags"></i> Top compétences demandées</div>
+            <div class="card-action" (click)="showPage('analytics')">Voir plus</div>
           </div>
-          <div class="mini-chart" style="margin-bottom:10px;">
-            <div class="mini-bar" *ngFor="let h of recruitmentBars; let i = index"
-              [style.height]="h + '%'"
-              [style.background]="h === 100 ? 'var(--accent)' : 'rgba(214,58,29,' + (0.16 + h/190) + ')'"
-              [title]="recruitmentDays[i] + ': ' + (h/10 | number:'1.0-0')">
+          <div *ngIf="loadingOffres" class="dashboard-stats-state">Chargement des statistiques...</div>
+          <ng-container *ngIf="!loadingOffres">
+            <div *ngIf="!topSkills.length" class="dashboard-stats-state">Aucune compétence renseignée dans les offres.</div>
+            <div class="analytics-bar-item" *ngFor="let s of topSkills">
+              <div class="analytics-label">{{ s.name }}</div>
+              <div class="analytics-track">
+                <div class="analytics-fill"
+                     [style.width.%]="(s.count / topSkillsMax) * 100"
+                     [style.background]="s.color"></div>
+              </div>
+              <div class="analytics-val" [style.color]="s.color">{{ s.count }}</div>
             </div>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);">
-            <span *ngFor="let d of recruitmentDays">{{ d }}</span>
-          </div>
-          <div style="margin-top:16px;display:flex;gap:16px;">
-            <div>
-              <div style="font-size:11px;color:var(--text3);">Total semaine</div>
-              <div style="font-size:20px;font-weight:700;font-family:var(--font-display);">44</div>
-            </div>
-            <div>
-              <div style="font-size:11px;color:var(--text3);">Score moyen IA</div>
-              <div style="font-size:20px;font-weight:700;font-family:var(--font-display);color:var(--accent3);">73%</div>
-            </div>
-            <div>
-              <div style="font-size:11px;color:var(--text3);">Entretiens planifiés</div>
-              <div style="font-size:20px;font-weight:700;font-family:var(--font-display);color:var(--accent4);">9</div>
-            </div>
-          </div>
+          </ng-container>
         </div>
 
         <div class="card">
-          <div class="card-header"><div class="card-title"><i class="fas fa-building"></i> Départements</div></div>
-          <div *ngFor="let d of deptStats" class="analytics-bar-item">
-            <div class="analytics-label">{{ d.label }}</div>
-            <div class="analytics-track"><div class="analytics-fill" [style.width]="d.pct + '%'" [style.background]="d.color"></div></div>
-            <div class="analytics-val" [style.color]="d.color">{{ d.pct }}%</div>
+          <div class="card-header">
+            <div class="card-title"><i class="fas fa-layer-group"></i> Statuts des candidatures</div>
+            <div class="card-action" (click)="showPage('offres')">Voir offres</div>
           </div>
+          <div *ngIf="loadingOffres" class="dashboard-stats-state">Chargement des statistiques...</div>
+          <ng-container *ngIf="!loadingOffres">
+            <div *ngIf="!totalCandidatures" class="dashboard-stats-state">Aucune candidature enregistrée pour le moment.</div>
+            <div class="analytics-bar-item" *ngFor="let status of candidatureStatusStats">
+              <div class="analytics-label">{{ status.label }}</div>
+              <div class="analytics-track">
+                <div class="analytics-fill"
+                     [style.width.%]="status.pct"
+                     [style.background]="status.color"></div>
+              </div>
+              <div class="analytics-val" [style.color]="status.color">{{ status.count }}</div>
+            </div>
+            <div class="dashboard-stats-summary" *ngIf="totalCandidatures">
+              <div>
+                <div class="dashboard-stats-summary-label">Total</div>
+                <div class="dashboard-stats-summary-value">{{ totalCandidatures }}</div>
+              </div>
+              <div>
+                <div class="dashboard-stats-summary-label">Score IA</div>
+                <div class="dashboard-stats-summary-value" style="color:var(--accent3);">{{ averageMatchingScore || 0 }}%</div>
+              </div>
+              <div>
+                <div class="dashboard-stats-summary-label">Ouvertes</div>
+                <div class="dashboard-stats-summary-value" style="color:var(--accent);">{{ openOffresCount }}</div>
+              </div>
+            </div>
+          </ng-container>
+        </div>
+
+        <div class="card dashboard-activity-card">
+          <div class="card-header">
+            <div class="card-title"><i class="fas fa-bell"></i> Activité récente</div>
+          </div>
+          <div *ngIf="loadingOffres || loadingEmployees || loadingFormations"
+               class="dashboard-stats-state">Chargement de l'activité...</div>
+          <ng-container *ngIf="!(loadingOffres || loadingEmployees || loadingFormations)">
+            <div *ngIf="!activityFeed.length" class="dashboard-stats-state">Aucune activité récente à afficher.</div>
+            <div class="activity-item" *ngFor="let a of activityFeed">
+              <div class="activity-dot" [style.background]="a.color"></div>
+              <div>
+                <p [innerHTML]="a.message"></p>
+                <span>{{ a.time }}</span>
+              </div>
+            </div>
+          </ng-container>
         </div>
       </div>
 
-      <!-- Employees + Activity -->
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title"><i class="fas fa-user-plus"></i> Nouveaux employés</div>
-          </div>
-          <div *ngIf="loadingEmployees" style="padding:18px 0;text-align:center;color:var(--text3);">
-            Chargement des employes...
-          </div>
+      <div class="card dashboard-employees-card">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-user-plus"></i> Nouveaux employés</div>
+        </div>
+        <div *ngIf="loadingEmployees" class="dashboard-stats-state">Chargement des employés...</div>
+        <ng-container *ngIf="!loadingEmployees">
           <div class="emp-item" *ngFor="let e of employees.slice(0,4)">
             <div class="emp-avatar" [style.background]="e.color" [style.color]="e.textColor">{{ e.initials }}</div>
             <div class="emp-info"><strong>{{ e.name }}</strong><span>{{ e.role }} · {{ e.dept }}</span></div>
             <span class="status-pill active">{{ e.joinDate ? ('Depuis ' + (e.joinDate | date:'MM/yyyy')) : 'Actif' }}</span>
           </div>
-          <div *ngIf="!loadingEmployees && !employees.length" style="font-size:12px;color:var(--text3);padding-top:8px;">
-            Aucun employe charge depuis le backend.
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-header"><div class="card-title"><i class="fas fa-bell"></i> Activité récente</div></div>
-          <div class="activity-item">
-            <div class="activity-dot" style="background:var(--accent3);"></div>
-            <div><p>🤖 IA a trié 8 candidatures pour <strong>Lead Dev React</strong></p><span>Il y a 2h</span></div>
-          </div>
-          <div class="activity-item">
-            <div class="activity-dot" style="background:var(--accent4);"></div>
-            <div><p>📅 Demande de congé de <strong>Karim Hamdi</strong> en attente</p><span>Il y a 4h</span></div>
-          </div>
-          <div class="activity-item">
-            <div class="activity-dot" style="background:var(--accent);"></div>
-            <div><p>📋 Nouvelle offre publiée : <strong>DevOps Engineer Senior</strong></p><span>Hier</span></div>
-          </div>
-          <div class="activity-item">
-            <div class="activity-dot" style="background:var(--accent6);"></div>
-            <div><p>🎓 Formation <strong>Cloud AWS</strong> complétée par 12 employés</p><span>Hier</span></div>
-          </div>
-          <div class="activity-item">
-            <div class="activity-dot" style="background:var(--accent5);"></div>
-            <div><p>⭐ Score matching record : <strong>97%</strong> pour poste Data Engineer</p><span>Il y a 2j</span></div>
-          </div>
-        </div>
+          <div *ngIf="!employees.length" class="dashboard-stats-state">Aucun employé chargé depuis le backend.</div>
+        </ng-container>
       </div>
     </div>
 
@@ -227,6 +231,8 @@
         <div class="stat-card amber"><div class="stat-top"><div class="stat-icon amber"><i class="fas fa-users"></i></div></div><div class="stat-value">{{ formationsEnrolledCount }}</div><div class="stat-label">Capacité totale</div></div>
         <div class="stat-card cyan"><div class="stat-top"><div class="stat-icon cyan"><i class="fas fa-star"></i></div></div><div class="stat-value">{{ formationsAverageRating }}</div><div class="stat-label">Note moyenne</div></div>
       </div>
+
+      <app-demandes-formation-panel theme="admin" (notify)="showToast($event)"></app-demandes-formation-panel>
 
       <div class="card" *ngIf="loadingFormations" style="padding:18px;text-align:center;color:var(--text3);margin-bottom:16px;">
         Chargement des formations...

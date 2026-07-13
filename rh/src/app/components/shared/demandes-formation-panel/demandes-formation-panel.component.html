@@ -1,0 +1,117 @@
+<section class="demandes-formation-panel" [class.theme-admin]="theme === 'admin'" [class.theme-rh]="theme === 'rh'">
+  <div class="panel-shell">
+    <div class="panel-top">
+      <div class="panel-intro">
+        <div class="panel-icon">
+          <i class="fas fa-graduation-cap"></i>
+        </div>
+        <div>
+          <h3>Demandes de formation</h3>
+          <p>Validez ou refusez les inscriptions demandees par les collaborateurs.</p>
+        </div>
+        <span class="pending-badge" *ngIf="pendingRequestsCount">{{ pendingRequestsCount }} en attente</span>
+      </div>
+
+      <div class="panel-toolbar">
+        <div class="filter-tabs">
+          <button
+            type="button"
+            class="filter-tab"
+            *ngFor="let filter of filters"
+            [class.active]="activeFilter === filter.key"
+            (click)="setFilter(filter.key)">
+            {{ filter.label }}
+          </button>
+        </div>
+
+        <div class="toolbar-actions">
+          <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input
+              type="text"
+              placeholder="Rechercher employe, formation..."
+              [(ngModel)]="searchQuery">
+          </div>
+          <button type="button" class="refresh-btn" (click)="loadRequests()" [disabled]="loading" title="Actualiser">
+            <i class="fas fa-rotate-right" [class.fa-spin]="loading"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="loading" class="panel-state">
+      <i class="fas fa-spinner fa-spin"></i>
+      <p>Chargement des demandes...</p>
+    </div>
+
+    <div *ngIf="!loading && !filteredRequests.length" class="panel-state">
+      <i class="fas fa-clipboard-check"></i>
+      <p>Aucune demande ne correspond a ce filtre.</p>
+    </div>
+
+    <div class="requests-grid" *ngIf="!loading && filteredRequests.length">
+      <article
+        class="request-card"
+        [ngClass]="cardAccentClass(request.statutDemande)"
+        *ngFor="let request of filteredRequests">
+        <div class="request-card-accent"></div>
+
+        <div class="request-card-top">
+          <div class="request-employee">
+            <div
+              class="request-avatar"
+              [style.background]="avatarStyle(request).bg"
+              [style.color]="avatarStyle(request).color">
+              {{ employeeInitials(request) }}
+            </div>
+            <div>
+              <strong>{{ employeeName(request) }}</strong>
+              <span>{{ request.matriculeEmploye || 'Matricule non renseigne' }}</span>
+            </div>
+          </div>
+          <span class="status-pill" [ngClass]="statusClass(request.statutDemande)">
+            {{ statusLabel(request.statutDemande) }}
+          </span>
+        </div>
+
+        <div class="request-formation">
+          <span class="request-formation-label">Formation demandee</span>
+          <h4>{{ request.titreFormation || 'Formation' }}</h4>
+        </div>
+
+        <blockquote class="request-quote">
+          <i class="fas fa-quote-left"></i>
+          <p>{{ request.justification || 'Aucune justification fournie.' }}</p>
+        </blockquote>
+
+        <div class="request-actions" *ngIf="request.statutDemande === 'EN_ATTENTE'">
+          <button
+            type="button"
+            class="request-btn approve"
+            (click)="approveRequest(request)"
+            [disabled]="updatingRequestId === request.id">
+            <i class="fas fa-check"></i>
+            Approuver
+          </button>
+          <button
+            type="button"
+            class="request-btn reject"
+            (click)="rejectRequest(request)"
+            [disabled]="updatingRequestId === request.id">
+            <i class="fas fa-times"></i>
+            Refuser
+          </button>
+        </div>
+
+        <div class="request-footer" *ngIf="request.statutDemande !== 'EN_ATTENTE'">
+          <span class="request-footer-note">
+            <i class="fas fa-circle-check" *ngIf="request.statutDemande === 'APPROUVEE'"></i>
+            <i class="fas fa-circle-xmark" *ngIf="request.statutDemande === 'REFUSEE'"></i>
+            <i class="fas fa-ban" *ngIf="request.statutDemande === 'ANNULEE'"></i>
+            Demande {{ statusLabel(request.statutDemande).toLowerCase() }}
+          </span>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>

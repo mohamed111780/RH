@@ -16,7 +16,16 @@ import { FormationService } from '../../../services/formation.service';
 import { OffreEmploiService } from '../../../services/offre-emploi.service';
 import { CandidatureService } from '../../../services/candidature.service';
 import { MonEspaceCollaborateurComponent } from '../../shared/mon-espace-collaborateur/mon-espace-collaborateur.component';
+import { DemandesFormationPanelComponent } from '../../shared/demandes-formation-panel/demandes-formation-panel.component';
 import { computeMatchingScore, normalizeSkill, splitCandidateTags } from '../../../utils/matching-score.util';
+import {
+  computeAverageMatchingScore,
+  computeCandidatureStatusStats,
+  computeTopSkills,
+  SkillStat,
+  StatusStat
+} from '../../../utils/dashboard-stats.util';
+import { ActivityItem, buildActivityFeed } from '../../../utils/activity-feed.util';
 
 export interface Employee {
   id: number;
@@ -121,12 +130,6 @@ export interface Formation {
   dateInscription?: string;
 }
 
-export interface ActivityItem {
-  color: string;
-  message: string;
-  time: string;
-}
-
 export interface AiInsight {
   icon: string;
   label: string;
@@ -139,7 +142,7 @@ export interface AiInsight {
 @Component({
   selector: 'app-espace-rh',
   standalone: true,
-  imports: [CommonModule, FormsModule, MonEspaceCollaborateurComponent],
+  imports: [CommonModule, FormsModule, MonEspaceCollaborateurComponent, DemandesFormationPanelComponent],
   templateUrl: './espace-rh.component.html',
   styleUrls: ['./espace-rh.component.css']
 })
@@ -247,15 +250,10 @@ export class EspaceRhComponent implements OnInit {
   leaveRequests: DemandeConge[] = [];
 
   formations: Formation[] = [];
-
-  readonly activityFeed: ActivityItem[] = [
-    { color: 'var(--teal)', message: '🤖 IA a trié 8 candidatures pour <strong>Lead Dev React</strong>', time: 'Il y a 2h' },
-    { color: 'var(--amber)', message: '📅 Demande de congé de <strong>Karim Hamdi</strong> en attente', time: 'Il y a 4h' },
-    { color: 'var(--accent)', message: '📋 Nouvelle offre publiée : <strong>DevOps Engineer Senior</strong>', time: 'Hier' },
-    { color: 'var(--purple)', message: '🎓 Formation <strong>Cloud AWS</strong> complétée par 12 employés', time: 'Hier' },
-    { color: 'var(--pink)', message: '⭐ Score matching record : <strong>97%</strong> pour poste Data Engineer', time: 'Il y a 2j' },
-    { color: 'var(--teal)', message: '👤 <strong>Sara Amrani</strong> a été ajoutée à l\'équipe Ingénierie', time: 'Il y a 3j' },
-  ];
+  activityFeed: ActivityItem[] = [];
+  allCandidatures: BackendCandidature[] = [];
+  allOffres: OffreEmploi[] = [];
+  currentDate: Date = new Date();
 
   readonly aiInsights: AiInsight[] = [
     { icon: 'fa-user-check', label: 'Taux de rétention', value: '94.2%', sub: '+1.8% ce trimestre', color: 'var(--teal)', bg: 'rgba(20,184,166,0.12)' },
@@ -268,24 +266,22 @@ export class EspaceRhComponent implements OnInit {
     { icon: 'fa-brain', label: 'Candidats pré-qualifiés', value: '31', sub: 'Score IA ≥ 75%', color: 'var(--purple)', bg: 'rgba(168,85,247,0.12)' },
   ];
 
-  readonly topSkills = [
-    { name: 'React.js', count: 38, color: 'var(--accent)' },
-    { name: 'Python', count: 35, color: 'var(--teal)' },
-    { name: 'TypeScript', count: 31, color: 'var(--purple)' },
-    { name: 'Docker', count: 28, color: 'var(--amber)' },
-    { name: 'AWS', count: 24, color: 'var(--pink)' },
-    { name: 'Node.js', count: 22, color: 'var(--accent)' },
+  topSkills: SkillStat[] = [];
+  candidatureStatusStats: StatusStat[] = [];
+  averageMatchingScore = 0;
+  private readonly skillColors = [
+    'var(--accent)',
+    'var(--teal)',
+    'var(--purple)',
+    'var(--amber)',
+    'var(--pink)',
+    'var(--accent)'
   ];
-
-  readonly deptDistrib = [
-    { name: 'Ingénierie', pct: 62, color: 'var(--teal)' },
-    { name: 'Design', pct: 18, color: 'var(--pink)' },
-    { name: 'Marketing', pct: 12, color: 'var(--amber)' },
-    { name: 'Finance', pct: 8, color: 'var(--purple)' },
-  ];
-
-  readonly recrutWeek = [40, 55, 70, 85, 100, 65, 35];
-  readonly recrutDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+  private readonly candidatureStatusColors: Record<StatusStat['key'], string> = {
+    EN_ATTENTE: 'var(--amber)',
+    ACCEPTEE: 'var(--purple)',
+    REFUSEE: 'var(--pink)'
+  };
 
   // Kanban column def
   readonly kanbanCols = [
@@ -302,6 +298,28 @@ export class EspaceRhComponent implements OnInit {
   get absentEmployees(): number { return this.employees.filter(e => e.status === 'absent').length; }
   get pendingLeaves(): number { return this.leaveRequests.filter(l => l.statutDemande === 'EN_ATTENTE').length; }
   get totalCandidatures(): number { return this.currentOffres.reduce((a, o) => a + o.candidatures, 0); }
+  get topSkillsMax(): number { return this.topSkills[0]?.count || 1; }
+  get openOffresCount(): number { return this.currentOffres.filter((offre) => offre.statut === 'OUVERTE').length; }
+  get highScoreCandidatures(): number {
+    return this.allCandidatures.filter((candidature) => (candidature.scoreMatching ?? 0) >= 85).length;
+  }
+  get dashboardBannerText(): string {
+    const parts = [`${this.pendingLeaves} demande${this.pendingLeaves > 1 ? 's' : ''} de conge en attente`];
+    if (this.highScoreCandidatures) {
+      parts.push(`${this.highScoreCandidatures} candidature${this.highScoreCandidatures > 1 ? 's' : ''} a score IA >= 85%`);
+    }
+    if (this.openOffresCount) {
+      parts.push(`${this.openOffresCount} offre${this.openOffresCount > 1 ? 's' : ''} ouverte${this.openOffresCount > 1 ? 's' : ''}`);
+    }
+    return parts.join(' · ');
+  }
+  get bannerDay(): string {
+    return this.currentDate.toLocaleDateString('fr-FR', { day: '2-digit' });
+  }
+  get bannerMonthYear(): string {
+    const formatted = this.currentDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+    return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+  }
 
   get filteredEmployees(): Employee[] {
     if (this.filterDept === 'Tous') return this.employees;
@@ -1127,6 +1145,7 @@ export class EspaceRhComponent implements OnInit {
     this.employeService.getAllEmployes().subscribe({
       next: (employees) => {
         this.employees = employees.map((employee) => this.mapEmployeToUi(employee));
+        this.refreshActivityFeed();
         this.loadingEmployees = false;
         this.cdr.detectChanges();
       },
@@ -1143,6 +1162,7 @@ export class EspaceRhComponent implements OnInit {
     this.demandeCongeService.getAllDemandes().subscribe({
       next: (requests) => {
         this.leaveRequests = requests.sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
+        this.refreshActivityFeed();
         this.loadingLeaveRequests = false;
         this.cdr.detectChanges();
       },
@@ -1204,6 +1224,7 @@ export class EspaceRhComponent implements OnInit {
     this.formationService.getAllFormations().subscribe({
       next: (formations) => {
         this.formations = formations.map((formation) => this.mapFormationToUi(formation));
+        this.refreshActivityFeed();
         this.loadingFormations = false;
         this.cdr.detectChanges();
       },
@@ -1229,7 +1250,11 @@ export class EspaceRhComponent implements OnInit {
           return acc;
         }, {} as Record<number, number>);
 
+        this.allOffres = offres;
+        this.allCandidatures = candidatures;
         this.currentOffres = offres.map((offre) => this.mapApiOffreToUi(offre, counts[offre.id ?? 0] ?? 0));
+        this.refreshDashboardStats(offres, candidatures);
+        this.refreshActivityFeed();
         this.loadingOffres = false;
       },
       error: () => {
@@ -1658,6 +1683,34 @@ export class EspaceRhComponent implements OnInit {
 
     const index = Math.abs(name.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)) % palettes.length;
     return palettes[index];
+  }
+
+  private refreshDashboardStats(offres: OffreEmploi[], candidatures: BackendCandidature[]): void {
+    this.topSkills = computeTopSkills(offres, this.skillColors);
+    this.candidatureStatusStats = computeCandidatureStatusStats(candidatures, this.candidatureStatusColors);
+    this.averageMatchingScore = computeAverageMatchingScore(candidatures);
+  }
+
+  private refreshActivityFeed(): void {
+    this.activityFeed = buildActivityFeed({
+      offres: this.allOffres.map((offre) => ({
+        titre: offre.titre,
+        statut: offre.statut,
+        datePublication: offre.datePublication
+      })),
+      candidatures: this.allCandidatures,
+      leaveRequests: this.leaveRequests,
+      employees: this.employees.map((employee) => ({
+        prenom: this.extractPrenom(employee.name),
+        nom: this.extractNom(employee.name),
+        departement: employee.dept,
+        dateEmbauche: employee.joinDate
+      })),
+      formations: this.formations.map((formation) => ({
+        titre: formation.title,
+        dateDebut: formation.dateDebut
+      }))
+    });
   }
 
   private formatRelativeDate(datePublication?: string): string {
