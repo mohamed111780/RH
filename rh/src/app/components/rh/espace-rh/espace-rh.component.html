@@ -583,8 +583,21 @@
     </div>
     <!-- ═══════════════════ FORMATIONS ═══════════════════ -->
     <div class="page" [class.active]="activePage==='formations'">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap;">
         <div class="section-title" style="margin-bottom:0;"><i class="fas fa-graduation-cap" style="color:var(--accent3);"></i> Formations & Compétences</div>
+      </div>
+
+      <div class="tabs">
+        <div class="tab" [class.active]="activeFormationTab === 'formations'" (click)="activeFormationTab = 'formations'">
+          <i class="fas fa-graduation-cap" style="margin-right:6px;"></i>Formations
+        </div>
+        <div class="tab" [class.active]="activeFormationTab === 'demandes'" (click)="activeFormationTab = 'demandes'">
+          <i class="fas fa-clipboard-list" style="margin-right:6px;"></i>Demandes formations
+        </div>
+      </div>
+
+      <ng-container *ngIf="activeFormationTab === 'formations'">
+      <div style="display:flex;align-items:center;justify-content:flex-end;gap:16px;margin-bottom:24px;flex-wrap:wrap;">
         <div class="topbar-search" style="max-width:420px;flex:1;min-width:240px;">
           <i class="fas fa-search"></i>
           <input type="text" placeholder="Rechercher formation..." [(ngModel)]="formationSearchQuery">
@@ -646,8 +659,6 @@
         <div class="stat-card cyan"><div class="stat-top"><div class="stat-icon cyan"><i class="fas fa-star"></i></div></div><div class="stat-value">{{ formationsAverageRating }}</div><div class="stat-label">Note moyenne</div></div>
       </div>
 
-      <app-demandes-formation-panel theme="rh" (notify)="showToast($event)"></app-demandes-formation-panel>
-
       <div class="empty-state" *ngIf="loadingFormations">
         <i class="fas fa-spinner fa-spin"></i>
         <p>Chargement des formations...</p>
@@ -679,6 +690,13 @@
           </div>
         </div>
       </div>
+      </ng-container>
+
+      <app-demandes-formation-panel
+        *ngIf="activeFormationTab === 'demandes'"
+        theme="rh"
+        (notify)="showToast($event)">
+      </app-demandes-formation-panel>
     </div>
 
     <!-- ═══════════════════ OFFRES & KANBAN ═══════════════════ -->

@@ -1,28 +1,16 @@
-<section class="apply-page">
-  <div class="apply-background" aria-hidden="true">
-    <div class="bg-card primary">
-      <span>{{ offer?.titre }}</span>
-      <strong>{{ estimatedScore() }}%</strong>
-    </div>
-    <div class="bg-card secondary">
-      <span>{{ offer?.departement }}</span>
-      <strong>{{ selectedSkills.length }} tags</strong>
-    </div>
-    <div class="bg-card tertiary">
-      <span>{{ offer?.company }}</span>
-      <strong>{{ offer?.contrat }}</strong>
-    </div>
-  </div>
+<section class="visitor-page" *ngIf="offer">
+  <div class="visitor-bg-grid" aria-hidden="true"></div>
+  <div class="visitor-particles" aria-hidden="true"></div>
 
-  <div class="modal-backdrop">
-    <div class="apply-modal" role="dialog" aria-modal="true" aria-label="Formulaire de candidature">
-      <button class="modal-close" type="button" [routerLink]="['/offre', offer?.id]" aria-label="Retour à l'offre">×</button>
+  <div class="visitor-modal-backdrop">
+    <div class="visitor-modal apply-modal" role="dialog" aria-modal="true" aria-label="Formulaire de candidature">
+      <button class="visitor-modal-close" type="button" [routerLink]="['/offre', offer.id]" aria-label="Retour à l'offre">×</button>
 
       <div class="modal-header">
         <div>
           <span class="apply-tag">Candidature externe</span>
-          <h1>Postuler pour « {{ offer?.titre }} »</h1>
-          <p>{{ offer?.company }} · {{ offer?.location }}</p>
+          <h1>Postuler pour « {{ offer.titre }} »</h1>
+          <p>{{ offer.company }} · {{ offer.location }}</p>
         </div>
         <div class="score-pill">
           <strong>{{ estimatedScore() }}%</strong>
@@ -34,22 +22,22 @@
         <div class="success-icon">✓</div>
         <h2>Candidature envoyée</h2>
         <p>Votre dossier a bien été enregistré avec vos tags de compétences.</p>
-        <button class="btn-hero-orange" type="button" [routerLink]="['/home']">Retour aux offres</button>
+        <button class="btn-primary" type="button" [routerLink]="['/home']">Retour aux offres</button>
       </div>
 
       <div class="modal-body" *ngIf="!submitted">
         <aside class="offer-panel">
           <h2>Détails de l'offre</h2>
           <ul>
-            <li><strong>Département</strong><span>{{ offer?.departement }}</span></li>
-            <li><strong>Niveau</strong><span>{{ offer?.niveau }}</span></li>
-            <li><strong>Contrat</strong><span>{{ offer?.contrat }}</span></li>
-            <li><strong>Type</strong><span>{{ offer?.type }}</span></li>
+            <li><strong>Département</strong><span>{{ offer.departement }}</span></li>
+            <li><strong>Niveau</strong><span>{{ offer.niveau }}</span></li>
+            <li><strong>Contrat</strong><span>{{ offer.contrat }}</span></li>
+            <li><strong>Type</strong><span>{{ offer.type }}</span></li>
           </ul>
 
           <div class="apply-skills">
             <h3>Compétences attendues</h3>
-            <span *ngFor="let skill of offer?.skills">{{ skill }}</span>
+            <span *ngFor="let skill of offer.skills">{{ skill }}</span>
           </div>
         </aside>
 
@@ -96,7 +84,7 @@
             <div class="suggested-skills">
               <button
                 type="button"
-                *ngFor="let skill of offer?.skills"
+                *ngFor="let skill of offer.skills"
                 [class.selected]="selectedSkills.includes(skill)"
                 (click)="toggleSkill(skill)">
                 {{ skill }}
@@ -137,8 +125,8 @@
 
           <div class="apply-actions">
             <button type="button" class="btn-secondary" *ngIf="currentStep > 1" (click)="previousStep()">Précédent</button>
-            <button type="button" class="btn-hero-orange" *ngIf="currentStep < 3" [disabled]="!canContinue()" (click)="nextStep()">Continuer</button>
-            <button type="button" class="btn-hero-orange" *ngIf="currentStep === 3" [disabled]="!canSubmit()" (click)="submitApplication()">
+            <button type="button" class="btn-primary" *ngIf="currentStep < 3" [disabled]="!canContinue()" (click)="nextStep()">Continuer</button>
+            <button type="button" class="btn-primary" *ngIf="currentStep === 3" [disabled]="!canSubmit()" (click)="submitApplication()">
               {{ isSubmitting ? 'Envoi...' : 'Envoyer ma candidature' }}
             </button>
           </div>

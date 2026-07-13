@@ -5,7 +5,6 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CAREER_OFFERS, CareerOffer } from './career-offers';
 import { LoginComponent } from '../login/login.component';
 import { ResetPasswordComponent } from '../reset-password/reset-password.component';
-import { OffreEmploiService } from '../../services/offre-emploi.service';
 
 @Component({
   selector: 'app-home',
@@ -19,13 +18,11 @@ export class HomeComponent implements OnInit {
   constructor(
     private sanitizer: DomSanitizer,
     private route: ActivatedRoute,
-    private router: Router,
-    private offreEmploiService: OffreEmploiService
+    private router: Router
   ) {}
 
   scrolled = false;
   menuOpen = false;
-  annuel = false;
   activeSol = 0;
   openFaq: number | null = null;
   loginModalOpen = false;
@@ -149,28 +146,6 @@ export class HomeComponent implements OnInit {
   ];
 
   careerOffers: CareerOffer[] = CAREER_OFFERS;
-  loadingCareerOffers = false;
-
-  plans = [
-    {
-      name: 'Starter', priceMonth: '490', priceYear: '392', featured: false, badge: '',
-      desc: 'Pour les PME qui démarrent leur digitalisation RH.',
-      cta: 'Essai gratuit 30 jours',
-      features: ["Jusqu'à 100 employés", 'Gestion des congés', 'Module recrutement', 'Support email', 'Rapports de base']
-    },
-    {
-      name: 'Business', priceMonth: '990', priceYear: '792', featured: true, badge: 'Le plus populaire',
-      desc: 'Pour les ETI avec des besoins RH avancés et multi-sites.',
-      cta: 'Démarrer maintenant',
-      features: ["Jusqu'à 500 employés", 'Tous les modules RH', 'Analytics avancés', 'Multi-entités', 'Support prioritaire 24/7', 'API & intégrations', 'Formations & compétences']
-    },
-    {
-      name: 'Enterprise', priceMonth: 'Sur devis', priceYear: 'Sur devis', featured: false, badge: '',
-      desc: 'Solution sur-mesure pour grands groupes et organisations.',
-      cta: 'Contacter les ventes',
-      features: ['Employés illimités', 'Déploiement on-premise', 'SSO & LDAP', 'SLA garanti 99.9%', 'Intégrations custom', 'Account Manager dédié', 'Formation & onboarding']
-    }
-  ];
 
   testimonials = [
     { text: 'ItVision a transformé notre gestion RH. Nous avons réduit le temps de traitement des congés de 80%. L\'interface est intuitive et nos équipes l\'ont adoptée immédiatement.', name: 'Sarra Khediri', role: 'DRH — Sofrecom Tunisie', initials: 'SK', bg: 'rgba(11,31,79,.1)' },
@@ -182,12 +157,12 @@ export class HomeComponent implements OnInit {
     { q: 'Combien de temps faut-il pour déployer ItVision ?', a: 'La plupart de nos clients sont opérationnels en 1 à 2 semaines. Notre équipe vous accompagne lors de la configuration initiale, l\'import des données et la formation des administrateurs.' },
     { q: 'Peut-on intégrer ItVision avec notre SIRH existant ?', a: 'Oui. ItVision dispose d\'une API REST complète et de connecteurs natifs pour les principaux SIRH du marché (SAP, Oracle HCM, etc.). Des intégrations custom sont disponibles dans le plan Enterprise.' },
     { q: 'Où sont hébergées nos données ?', a: 'Vos données sont hébergées en Tunisie dans des data centres certifiés ISO 27001, avec chiffrement AES-256. Nous proposons également un hébergement on-premise pour le plan Enterprise.' },
-    { q: 'Y a-t-il un engagement minimum ?', a: 'Non. Les plans Starter et Business sont sans engagement, résiliables à tout moment. Le plan Enterprise inclut un contrat annuel avec SLA garanti.' },
-    { q: 'Comment fonctionne l\'essai gratuit ?', a: 'L\'essai de 30 jours donne accès à toutes les fonctionnalités du plan Business, sans carte bancaire. À l\'issue des 30 jours, vous choisissez le plan adapté.' }
+    { q: 'Y a-t-il un engagement minimum ?', a: 'Non. ItVision est déployable sans engagement long terme. Vous pouvez ajuster votre utilisation selon l\'évolution de votre organisation.' },
+    { q: 'Comment démarrer avec ItVision ?', a: 'Contactez notre équipe pour une démo personnalisée. Nous configurons votre espace, importons vos données et formons vos administrateurs en quelques jours.' }
   ];
 
   footerCols = [
-    { title: 'Plateforme', links: ['Fonctionnalités', 'Tarifs', 'Sécurité', 'Intégrations', 'Nouveautés'] },
+    { title: 'Plateforme', links: ['Fonctionnalités', 'Sécurité', 'Intégrations', 'Nouveautés', 'Roadmap'] },
     { title: 'Solutions', links: ['Gestion des congés', 'Recrutement', 'Formations', 'Analytics RH', 'Organigramme'] },
     { title: 'Entreprise', links: ['À propos', 'Carrières', 'Blog RH', 'Partenaires', 'Presse'] },
     { title: 'Support', links: ['Documentation', "Centre d'aide", 'Statut', 'Nous contacter', 'RGPD'] }
@@ -197,34 +172,12 @@ export class HomeComponent implements OnInit {
   mockBars = [{ h: 40, active: false }, { h: 60, active: false }, { h: 45, active: false }, { h: 80, active: true }, { h: 55, active: false }, { h: 70, active: false }, { h: 50, active: false }];
 
   ngOnInit(): void {
-    this.loadCareerOffers();
     this.route.data.subscribe((data) => {
       const modal = data['authModal'];
       if (modal === 'login' || modal === 'reset') {
         this.authModalMode = modal;
         this.loginModalOpen = true;
         this.menuOpen = false;
-      }
-    });
-  }
-
-  private loadCareerOffers(): void {
-    this.loadingCareerOffers = true;
-    this.offreEmploiService.getOffresByType('EXTERNE').subscribe({
-      next: (offres) => {
-        const apiOffers = offres
-          .filter((offre) => offre.statut === 'OUVERTE')
-          .map((offre) => ({
-            ...offre,
-            company: 'ItVision',
-            location: 'Tunis, Tunisie'
-          }));
-        this.careerOffers = apiOffers.length ? apiOffers : CAREER_OFFERS;
-        this.loadingCareerOffers = false;
-      },
-      error: () => {
-        this.careerOffers = CAREER_OFFERS;
-        this.loadingCareerOffers = false;
       }
     });
   }

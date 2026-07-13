@@ -171,6 +171,7 @@ export class EspaceAdminComponent implements OnInit {
 
   searchQuery: string = '';
   formationSearchQuery: string = '';
+  activeFormationTab: 'formations' | 'demandes' = 'formations';
   currentDate: Date = new Date();
 
   constructor(

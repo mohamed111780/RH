@@ -2,9 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
-import { CareerOffer } from '../career-offers';
+import { CAREER_OFFERS, CareerOffer } from '../career-offers';
 import { CandidatureService } from '../../../services/candidature.service';
-import { OffreEmploiService } from '../../../services/offre-emploi.service';
 import { Candidature } from '../../../models/candidature';
 import { computeMatchingScore } from '../../../utils/matching-score.util';
 
@@ -17,8 +16,6 @@ import { computeMatchingScore } from '../../../utils/matching-score.util';
 })
 export class ApplyFormComponent implements OnInit {
   offer: CareerOffer | undefined;
-  loadingOffer = true;
-  loadError = '';
   candidate = { name: '', email: '', phone: '', cv: '', message: '' };
   customSkill = '';
   selectedSkills: string[] = [];
@@ -36,8 +33,7 @@ export class ApplyFormComponent implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private candidatureService: CandidatureService,
-    private offreEmploiService: OffreEmploiService
+    private candidatureService: CandidatureService
   ) {}
 
   ngOnInit(): void {
@@ -47,21 +43,10 @@ export class ApplyFormComponent implements OnInit {
       return;
     }
 
-    this.offreEmploiService.getOffreById(id).subscribe({
-      next: (offre) => {
-        this.offer = {
-          ...offre,
-          company: 'ItVision',
-          location: 'Tunis, Tunisie'
-        };
-        this.loadingOffer = false;
-      },
-      error: () => {
-        this.loadError = 'Offre introuvable';
-        this.loadingOffer = false;
-        this.router.navigate(['/home']);
-      }
-    });
+    this.offer = CAREER_OFFERS.find((item) => item.id === id);
+    if (!this.offer) {
+      this.router.navigate(['/home']);
+    }
   }
 
   toggleSkill(skill: string): void {

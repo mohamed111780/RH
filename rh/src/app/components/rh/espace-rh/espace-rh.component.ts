@@ -213,6 +213,7 @@ export class EspaceRhComponent implements OnInit {
 
   // Recherche formations
   formationSearchQuery: string = '';
+  activeFormationTab: 'formations' | 'demandes' = 'formations';
   loadingFormations: boolean = false;
 
   // Formation modal state
